@@ -1,0 +1,85 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+
+import Landing from './pages/Landing'
+import Login from './pages/auth/Login'
+import Register from './pages/auth/Register'
+import AppShell from './components/layout/AppShell'
+
+// App pages
+import Dashboard from './pages/app/Dashboard'
+import Clients from './pages/app/Clients'
+import Projects from './pages/app/Projects'
+import ProposalBuilder from './pages/app/ProposalBuilder'
+import Contracts from './pages/app/Contracts'
+import Invoices from './pages/app/Invoices'
+import Files from './pages/app/Files'
+import Messages from './pages/app/Messages'
+import Settings from './pages/app/Settings'
+import TimeTracking from './pages/app/TimeTracking'
+import Expenses from './pages/app/Expenses'
+import Services from './pages/app/Services'
+import Pipeline from './pages/app/Pipeline'
+import Forms from './pages/app/Forms'
+import Scheduling from './pages/app/Scheduling'
+import Reports from './pages/app/Reports'
+import Automations from './pages/app/Automations'
+import Tasks from './pages/app/Tasks'
+
+// Client Portal pages (public, magic-link based)
+import PortalLayout from './pages/portal/PortalLayout'
+import PortalOverview from './pages/portal/PortalOverview'
+import PortalProposal from './pages/portal/PortalProposal'
+import PortalContract from './pages/portal/PortalContract'
+import PortalInvoice from './pages/portal/PortalInvoice'
+import PortalFiles from './pages/portal/PortalFiles'
+import PortalMessages from './pages/portal/PortalMessages'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Client Portal — public, no auth, magic link (JWT in Phase 1) */}
+        <Route path="/portal" element={<PortalLayout />}>
+          <Route index element={<Navigate to="/portal/overview" replace />} />
+          <Route path="overview" element={<PortalOverview />} />
+          <Route path="proposal" element={<PortalProposal />} />
+          <Route path="contract" element={<PortalContract />} />
+          <Route path="invoice" element={<PortalInvoice />} />
+          <Route path="files" element={<PortalFiles />} />
+          <Route path="messages" element={<PortalMessages />} />
+        </Route>
+
+        {/* App (protected — auth mocked for now) */}
+        <Route path="/app" element={<AppShell />}>
+          <Route index element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="pipeline" element={<Pipeline />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="proposals" element={<ProposalBuilder />} />
+          <Route path="contracts" element={<Contracts />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="time" element={<TimeTracking />} />
+          <Route path="expenses" element={<Expenses />} />
+          <Route path="services" element={<Services />} />
+          <Route path="forms" element={<Forms />} />
+          <Route path="scheduling" element={<Scheduling />} />
+          <Route path="files" element={<Files />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="automations" element={<Automations />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
