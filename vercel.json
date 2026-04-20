@@ -3,6 +3,11 @@
   "buildCommand": "cd freelanceportal && npm run build",
   "outputDirectory": "freelanceportal/dist",
   "rewrites": [
+    { "source": "/health", "destination": "/api/index.js" },
+    { "source": "/admin/(.*)", "destination": "/api/index.js" },
+    { "source": "/stripe/(.*)", "destination": "/api/index.js" },
+    { "source": "/portal/(.*)", "destination": "/api/index.js" },
+    { "source": "/public/(.*)", "destination": "/api/index.js" },
     {
       "source": "/(.*)",
       "destination": "/index.html"

@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 const TOKEN_BYTES = 32
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 function bytesToBase64Url(bytes) {
   let binary = ''

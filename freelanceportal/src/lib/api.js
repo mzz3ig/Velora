@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+// In production, default to same-origin (Vercel rewrites route /admin,/stripe,/portal,/public to the backend).
+// In local dev, set `VITE_API_URL=http://localhost:4000` in `freelanceportal/.env.local`.
+const BASE = import.meta.env.VITE_API_URL || ''
 
 async function request(method, path, body) {
   const { data: sessionData } = await supabase.auth.getSession()
