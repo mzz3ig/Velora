@@ -4,8 +4,7 @@ import { useForm } from 'react-hook-form'
 import { ArrowRight, Eye, EyeOff, Home, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-
-const ADMIN_EMAIL = 'rcmendes098@hotmail.com'
+import { isAdminEmail } from '../../lib/admin'
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -36,7 +35,7 @@ export default function Login() {
     const requestedPath = location.state?.from?.pathname
     const nextPath = requestedPath?.startsWith('/') ? requestedPath : null
 
-    navigate(nextPath || (normalizedEmail === ADMIN_EMAIL ? '/admin/overview' : '/app/dashboard'), { replace: true })
+    navigate(nextPath || (isAdminEmail(normalizedEmail) ? '/admin/overview' : '/app/dashboard'), { replace: true })
   }
 
   return (

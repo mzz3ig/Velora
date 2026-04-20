@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-
-const ADMIN_EMAIL = 'rcmendes098@hotmail.com'
-const isAdminEmail = (email) => email?.trim().toLowerCase() === ADMIN_EMAIL
+import { isAdminEmail } from '../../lib/admin'
 
 export default function AdminRoute() {
   const [status, setStatus] = useState('loading')

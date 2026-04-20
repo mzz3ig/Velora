@@ -96,7 +96,7 @@ export default function App() {
           </Route>
         </Route>
 
-        {/* Admin — god mode, hardcoded to rcmendes098@hotmail.com */}
+        {/* Admin routes are limited to the configured admin email. */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminShell />}>
             <Route index element={<Navigate to="/admin/overview" replace />} />
