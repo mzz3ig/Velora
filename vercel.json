@@ -1,5 +1,5 @@
 {
-  "installCommand": "cd freelanceportal && npm ci",
+  "installCommand": "cd server && npm ci && cd ../freelanceportal && npm ci",
   "buildCommand": "cd freelanceportal && npm run build",
   "outputDirectory": "freelanceportal/dist",
   "rewrites": [
