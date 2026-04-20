@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { ArrowRight, Eye, EyeOff, Home, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+
+const ADMIN_EMAIL = 'rcmendes098@hotmail.com'
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -11,13 +13,16 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [authError, setAuthError] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
 
   const onSubmit = async ({ email, password }) => {
+    const normalizedEmail = email.trim().toLowerCase()
+
     setLoading(true)
     setAuthError('')
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
 
@@ -28,7 +33,10 @@ export default function Login() {
       return
     }
 
-    navigate('/app/dashboard')
+    const requestedPath = location.state?.from?.pathname
+    const nextPath = requestedPath?.startsWith('/') ? requestedPath : null
+
+    navigate(nextPath || (normalizedEmail === ADMIN_EMAIL ? '/admin/overview' : '/app/dashboard'), { replace: true })
   }
 
   return (

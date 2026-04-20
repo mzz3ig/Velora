@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 const ADMIN_EMAIL = 'rcmendes098@hotmail.com'
+const isAdminEmail = (email) => email?.trim().toLowerCase() === ADMIN_EMAIL
 
 export default function AdminRoute() {
   const [status, setStatus] = useState('loading')
@@ -13,12 +14,12 @@ export default function AdminRoute() {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
       const email = data.session?.user?.email
-      setStatus(email === ADMIN_EMAIL ? 'allowed' : 'denied')
+      setStatus(isAdminEmail(email) ? 'allowed' : 'denied')
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
       if (!mounted) return
       const email = session?.user?.email
-      setStatus(email === ADMIN_EMAIL ? 'allowed' : 'denied')
+      setStatus(isAdminEmail(email) ? 'allowed' : 'denied')
     })
     return () => {
       mounted = false
