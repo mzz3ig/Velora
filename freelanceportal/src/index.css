@@ -4,6 +4,7 @@
 
 :root {
   --bg: #ffffff;
+  --bg-primary: #ffffff;
   --bg-secondary: rgba(245, 249, 255, 0.82);
   --bg-tertiary: rgba(239, 245, 255, 0.86);
   --surface: rgba(255, 255, 255, 0.82);
@@ -50,7 +51,8 @@
 html { scroll-behavior: smooth; background: transparent; }
 
 body {
-  background: transparent;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 44%, #ffffff 100%);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -67,8 +69,108 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background: transparent;
-  opacity: 0;
+  background:
+    linear-gradient(90deg, rgba(29, 29, 31, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(29, 29, 31, 0.035) 1px, transparent 1px),
+    radial-gradient(ellipse 78% 48% at 50% -14%, rgba(71, 191, 255, 0.13), transparent 68%),
+    linear-gradient(115deg, rgba(71, 191, 255, 0.08), transparent 36%, rgba(98, 214, 164, 0.08) 62%, transparent 84%),
+    linear-gradient(245deg, transparent 12%, rgba(255, 148, 111, 0.07) 44%, transparent 78%);
+  background-size: 72px 72px, 72px 72px, 100% 100%, 160% 160%, 150% 150%;
+  opacity: 1;
+}
+
+.workspace-shell,
+.portal-shell {
+  background:
+    radial-gradient(ellipse 82% 52% at 50% -18%, rgba(71, 191, 255, 0.14), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,251,255,0.86) 52%, rgba(255,255,255,0.96) 100%);
+  color: var(--text-primary);
+  isolation: isolate;
+  position: relative;
+}
+
+.workspace-shell::before,
+.portal-shell::before {
+  background:
+    linear-gradient(90deg, rgba(29, 29, 31, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(29, 29, 31, 0.04) 1px, transparent 1px);
+  background-size: 72px 72px;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -2;
+}
+
+.workspace-shell::after,
+.portal-shell::after {
+  background:
+    linear-gradient(115deg, rgba(71, 191, 255, 0.13), transparent 34%, rgba(98, 214, 164, 0.11) 62%, transparent 82%),
+    linear-gradient(245deg, transparent 10%, rgba(255, 148, 111, 0.10) 44%, transparent 76%);
+  background-size: 160% 160%, 150% 150%;
+  content: "";
+  inset: 0;
+  opacity: 0.82;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.workspace-main,
+.portal-main {
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-main {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.36), transparent 18%, transparent 82%, rgba(255,255,255,0.30));
+}
+
+.workspace-sidebar,
+.portal-chrome {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0.42)),
+    linear-gradient(115deg, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%, rgba(71,191,255,0.08));
+  border-color: rgba(255,255,255,0.64) !important;
+  box-shadow: var(--glass-inset), 0 12px 34px rgba(29,29,31,0.06);
+}
+
+.workspace-content {
+  margin: 0 auto;
+  width: 100%;
+}
+
+.portal-nav-item {
+  align-items: center;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 0.875rem;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding: 9px 12px;
+  position: relative;
+  text-decoration: none;
+  transition:
+    background-color 0.28s var(--ease-apple),
+    border-color 0.28s var(--ease-apple),
+    color 0.22s var(--ease-apple),
+    box-shadow 0.28s var(--ease-apple),
+    transform 0.28s var(--ease-apple);
+}
+
+.portal-nav-item:hover {
+  background: rgba(255,255,255,0.46);
+  box-shadow: var(--glass-inset);
+  color: var(--text-primary);
+}
+
+.portal-nav-item.active {
+  background: rgba(255,255,255,0.54);
+  box-shadow: var(--glass-inset), var(--glass-shadow-soft);
+  font-weight: 700;
 }
 
 button,

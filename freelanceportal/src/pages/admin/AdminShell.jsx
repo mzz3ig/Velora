@@ -34,19 +34,17 @@ export default function AdminShell() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
+    <div className="workspace-shell" style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar — mirrors AppShell Sidebar structure */}
       <motion.aside
-        className="glass"
+        className="glass workspace-sidebar"
         animate={{ width: collapsed ? 64 : 220 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         style={{
           height: '100vh', position: 'sticky', top: 0,
-          background: 'var(--surface)',
           borderRight: '1px solid var(--border)',
           backdropFilter: 'var(--blur)',
           WebkitBackdropFilter: 'var(--blur)',
-          boxShadow: '1px 0 18px rgba(0,0,0,0.04)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden', flexShrink: 0, zIndex: 10,
         }}
@@ -155,7 +153,7 @@ export default function AdminShell() {
       </motion.aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+      <main className="workspace-main" style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
         <Outlet />
       </main>
     </div>

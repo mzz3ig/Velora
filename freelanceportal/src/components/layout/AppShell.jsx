@@ -6,9 +6,9 @@ export default function AppShell() {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
+    <div className="workspace-shell" style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
+      <main className="workspace-main" style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
         <Outlet />
       </main>
     </div>

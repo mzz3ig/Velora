@@ -63,10 +63,11 @@ function NotificationPanel({ onClose }) {
 
   return (
     <motion.div ref={ref} initial={{ opacity: 0, x: -8, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -8, scale: 0.97 }}
+      className="glass"
       style={{
         position: 'fixed', left: 230, top: 80, width: 320, zIndex: 100,
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden',
+        borderRadius: 8,
+        overflow: 'hidden',
       }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</div>
@@ -118,16 +119,14 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   return (
     <>
       <motion.aside
-        className="glass"
+        className="glass workspace-sidebar"
         animate={{ width: collapsed ? 64 : 220 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         style={{
           height: '100vh', position: 'sticky', top: 0,
-          background: 'var(--surface)',
           borderRight: '1px solid var(--border)',
           backdropFilter: 'var(--blur)',
           WebkitBackdropFilter: 'var(--blur)',
-          boxShadow: '1px 0 18px rgba(0,0,0,0.04)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden', flexShrink: 0,
           zIndex: 10,

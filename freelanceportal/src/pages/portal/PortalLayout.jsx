@@ -39,12 +39,14 @@ export default function PortalLayout() {
   const brandColor = freelancer.brand_color
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
+    <div className="portal-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Portal header — white-labeled */}
-      <header style={{
-        background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+      <header className="glass portal-chrome" style={{
+        borderBottom: '1px solid var(--border)',
         padding: '0 24px', minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 10,
+        backdropFilter: 'var(--blur)',
+        WebkitBackdropFilter: 'var(--blur)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {freelancer.logo ? (
@@ -65,19 +67,14 @@ export default function PortalLayout() {
 
       <div style={{ display: 'flex', flex: 1 }}>
         {/* Sidebar nav */}
-        <nav style={{ width: 200, background: 'var(--surface)', borderRight: '1px solid var(--border)', padding: '20px 8px', flexShrink: 0 }}>
+        <nav className="glass portal-chrome" style={{ width: 200, borderRight: '1px solid var(--border)', padding: '20px 8px', flexShrink: 0 }}>
           {NAV_ITEMS.map(item => {
             const active = location.pathname === item.path
             return (
               <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 12px', borderRadius: 8, marginBottom: 2,
-                  background: active ? brandColor + '15' : 'transparent',
+                <div className={`portal-nav-item${active ? ' active' : ''}`} style={{
                   color: active ? brandColor : 'var(--text-secondary)',
-                  fontWeight: active ? 700 : 400, fontSize: '0.875rem',
                   borderLeft: active ? `3px solid ${brandColor}` : '3px solid transparent',
-                  transition: 'all 0.15s',
                 }}>
                   <item.icon size={16} />
                   {item.label}
@@ -88,13 +85,13 @@ export default function PortalLayout() {
         </nav>
 
         {/* Content */}
-        <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+        <main className="portal-main" style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
           <Outlet context={{ freelancer, client, project }} />
         </main>
       </div>
 
       {/* Footer */}
-      <footer style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--surface)', textAlign: 'center' }}>
+      <footer className="glass portal-chrome" style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
           Powered by Velora · {freelancer.name}
         </span>
