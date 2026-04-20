@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd freelanceportal && npm ci",
+  "buildCommand": "cd freelanceportal && npm run build",
+  "outputDirectory": "freelanceportal/dist"
+}
