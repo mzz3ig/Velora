@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 const TOKEN_BYTES = 32
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
 function bytesToBase64Url(bytes) {
   let binary = ''
@@ -53,36 +54,53 @@ export async function createPortalLink({ clientId = null, projectId = null, expi
 }
 
 export async function loadPortalPayload(token) {
-  const { data, error } = await supabase.rpc('get_portal_payload', { raw_token: token })
-  if (error) throw error
+  const res = await fetch(`${API_BASE}/portal/payload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not load this portal.')
   return data
 }
 
 export async function acceptPortalProposal(token, proposalId, decision) {
-  const { data, error } = await supabase.rpc('portal_accept_proposal', {
-    raw_token: token,
-    proposal_id: String(proposalId),
-    decision,
+  const res = await fetch(`${API_BASE}/portal/accept-proposal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, proposalId: String(proposalId), decision }),
   })
-  if (error) throw error
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not update this proposal.')
   return data
 }
 
 export async function signPortalContract(token, contractId, signerName) {
-  const { data, error } = await supabase.rpc('portal_sign_contract', {
-    raw_token: token,
-    contract_id: String(contractId),
-    signer_name: signerName,
+  const res = await fetch(`${API_BASE}/portal/sign-contract`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, contractId: String(contractId), signerName }),
   })
-  if (error) throw error
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not sign this contract.')
   return data
 }
 
 export async function sendPortalMessage(token, messageText) {
-  const { data, error } = await supabase.rpc('portal_send_message', {
-    raw_token: token,
-    message_text: messageText,
+  const res = await fetch(`${API_BASE}/portal/send-message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, messageText }),
   })
-  if (error) throw error
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not send this message.')
   return data
+}
+
+export async function getPortalFileUrl(token, path) {
+  const params = new URLSearchParams({ token, path })
+  const res = await fetch(`${API_BASE}/portal/file?${params.toString()}`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not open this file.')
+  return data.url
 }

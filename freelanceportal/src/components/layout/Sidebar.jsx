@@ -9,7 +9,7 @@ import {
   BarChart2, Zap as ZapIcon, CheckSquare, Bell,
   CheckCircle2, AlertCircle, X,
 } from 'lucide-react'
-import { useNotificationStore } from '../../store'
+import { useNotificationStore, useSettingsStore } from '../../store'
 import { supabase } from '../../lib/supabase'
 
 const navItems = [
@@ -107,10 +107,35 @@ function NotificationPanel({ onClose }) {
   )
 }
 
-export default function Sidebar({ collapsed, setCollapsed }) {
+export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { notifications } = useNotificationStore()
+  const { account, billing } = useSettingsStore()
   const [showNotifs, setShowNotifs] = useState(false)
+  const [authUser, setAuthUser] = useState(null)
   const unreadCount = notifications.filter(n => !n.read).length
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setAuthUser(data?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setAuthUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const displayName = (() => {
+    const first = account?.firstName?.trim()
+    const last = account?.lastName?.trim()
+    if (first || last) return [first, last].filter(Boolean).join(' ')
+    return authUser?.email?.split('@')[0] || 'My Account'
+  })()
+
+  const initials = displayName.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'
+
+  const planLabel = (() => {
+    const plan = billing?.plan || 'starter'
+    return plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan'
+  })()
+
   const signOut = async () => {
     await supabase.auth.signOut()
     window.location.assign('/login')
@@ -129,8 +154,9 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           WebkitBackdropFilter: 'var(--blur)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden', flexShrink: 0,
-          zIndex: 10,
+          zIndex: 50,
         }}
+        data-mobile-open={mobileOpen}
       >
         {/* Logo */}
         <div style={{
@@ -149,7 +175,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
             )}
           </div>
           {!collapsed && (
-            <button onClick={() => setCollapsed(true)}
+            <button onClick={() => { setCollapsed(true); setMobileOpen && setMobileOpen(false) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}>
               <ChevronRight size={14} />
             </button>
@@ -226,16 +252,16 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           }}>
             <div style={{
               width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-              background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+              background: 'var(--accent)', border: '1px solid var(--border-light)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)',
-            }}>R</div>
+              fontSize: '0.75rem', fontWeight: 700, color: 'white',
+            }}>{initials}</div>
             {!collapsed && (
               <div style={{ overflow: 'hidden', flex: 1 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Rodrigo Mendes
+                  {displayName}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Pro plan</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{planLabel}</div>
               </div>
             )}
           </div>

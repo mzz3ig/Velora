@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Shield, Users, Activity, Database, TrendingUp, DollarSign, RefreshCw } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminMe, adminStateRows } from '../../lib/api'
 
 function StatCard({ icon: Icon, label, value, sub, color, delay = 0 }) {
   return (
@@ -31,35 +31,31 @@ export default function AdminOverview() {
 
   const load = async () => {
     setRefreshing(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    setAdminEmail(user?.email || '')
+    try {
+      const me = await adminMe()
+      setAdminEmail(me.email || '')
+      const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
 
-    const { data: rows, error } = await supabase
-      .from('velora_state')
-      .select('user_id, store_key, updated_at')
+      const distinctUsers = [...new Set(rows.map(r => r.user_id))]
+      const storeKeys = [...new Set(rows.map(r => r.store_key))]
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+      const dayAgo = new Date(Date.now() - 86400000).toISOString()
+      const activeUsers7d = [...new Set(rows.filter(r => r.updated_at > weekAgo).map(r => r.user_id))].length
+      const active24h = [...new Set(rows.filter(r => r.updated_at > dayAgo).map(r => r.user_id))].length
+      const rowsPerUser = {}
+      rows.forEach(r => { rowsPerUser[r.user_id] = (rowsPerUser[r.user_id] || 0) + 1 })
+      const avgRows = distinctUsers.length > 0
+        ? (Object.values(rowsPerUser).reduce((s, n) => s + n, 0) / distinctUsers.length).toFixed(1) : 0
+      const latestActivity = [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 8)
 
-    if (error) {
+      setMetrics({ totalUsers: distinctUsers.length, totalStateRows: rows.length, storeKeys, activeUsers7d, active24h, avgRows, latestActivity })
+      setLoading(false)
+      setRefreshing(false)
+    } catch (error) {
       setMetrics({ error: error.message })
       setLoading(false)
       setRefreshing(false)
-      return
     }
-
-    const distinctUsers = [...new Set(rows.map(r => r.user_id))]
-    const storeKeys = [...new Set(rows.map(r => r.store_key))]
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-    const dayAgo = new Date(Date.now() - 86400000).toISOString()
-    const activeUsers7d = [...new Set(rows.filter(r => r.updated_at > weekAgo).map(r => r.user_id))].length
-    const active24h = [...new Set(rows.filter(r => r.updated_at > dayAgo).map(r => r.user_id))].length
-    const rowsPerUser = {}
-    rows.forEach(r => { rowsPerUser[r.user_id] = (rowsPerUser[r.user_id] || 0) + 1 })
-    const avgRows = distinctUsers.length > 0
-      ? (Object.values(rowsPerUser).reduce((s, n) => s + n, 0) / distinctUsers.length).toFixed(1) : 0
-    const latestActivity = [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 8)
-
-    setMetrics({ totalUsers: distinctUsers.length, totalStateRows: rows.length, storeKeys, activeUsers7d, active24h, avgRows, latestActivity })
-    setLoading(false)
-    setRefreshing(false)
   }
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Download, Loader, Zap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { adminMe, adminStateRows, adminStateSample } from '../../lib/api'
 
 function ActionCard({ title, description, buttonLabel, onRun, delay }) {
   const [state, setState] = useState('idle')
@@ -39,24 +40,21 @@ function ActionCard({ title, description, buttonLabel, onRun, delay }) {
 
 export default function AdminActions() {
   const checkAuth = async () => {
-    const { data, error } = await supabase.auth.getUser()
-    if (error) throw new Error(error.message)
-    return `Authenticated as ${data.user.email} (${data.user.id.slice(0, 8)}...)`
+    const data = await adminMe()
+    return `Authenticated as ${data.email} (${data.userId.slice(0, 8)}...)`
   }
 
   const checkSupabase = async () => {
     const startedAt = Date.now()
-    const { data, error } = await supabase.from('velora_state').select('user_id, store_key, updated_at').limit(5)
-    if (error) throw new Error(error.message)
-    return `Supabase responded in ${Date.now() - startedAt}ms - ${data.length} rows sampled`
+    const { rows } = await adminStateSample(5)
+    return `Supabase responded in ${Date.now() - startedAt}ms - ${rows.length} rows sampled`
   }
 
   const countPlatformRows = async () => {
-    const { data, error } = await supabase.from('velora_state').select('user_id, store_key, updated_at')
-    if (error) throw new Error(error.message)
-    const users = [...new Set(data.map((row) => row.user_id))].length
-    const stores = [...new Set(data.map((row) => row.store_key))].length
-    return `${data.length} total rows · ${users} distinct users · ${stores} store key types`
+    const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
+    const users = [...new Set(rows.map((row) => row.user_id))].length
+    const stores = [...new Set(rows.map((row) => row.store_key))].length
+    return `${rows.length} rows loaded · ${users} distinct users · ${stores} store key types`
   }
 
   const refreshSession = async () => {
@@ -66,21 +64,17 @@ export default function AdminActions() {
   }
 
   const exportPlatformMetadata = async () => {
-    const { data, error } = await supabase
-      .from('velora_state')
-      .select('user_id, store_key, updated_at')
-      .order('updated_at', { ascending: false })
-    if (error) throw new Error(error.message)
+    const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
 
-    const users = [...new Set(data.map((row) => row.user_id))]
+    const users = [...new Set(rows.map((row) => row.user_id))]
     const storeCount = {}
-    data.forEach((row) => { storeCount[row.store_key] = (storeCount[row.store_key] || 0) + 1 })
+    rows.forEach((row) => { storeCount[row.store_key] = (storeCount[row.store_key] || 0) + 1 })
 
     const report = {
       exportedAt: new Date().toISOString(),
       platform: 'Velora',
-      summary: { totalRows: data.length, totalUsers: users.length, storeKeyBreakdown: storeCount },
-      rows: data.map((row) => ({ user_id: row.user_id, store_key: row.store_key, updated_at: row.updated_at })),
+      summary: { totalRows: rows.length, totalUsers: users.length, storeKeyBreakdown: storeCount },
+      rows: rows.map((row) => ({ user_id: row.user_id, store_key: row.store_key, updated_at: row.updated_at })),
     }
 
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
@@ -97,7 +91,7 @@ export default function AdminActions() {
     const times = []
     for (let i = 0; i < 5; i += 1) {
       const startedAt = Date.now()
-      await supabase.from('velora_state').select('user_id').limit(1)
+      await adminStateSample(1)
       times.push(Date.now() - startedAt)
     }
     const avg = Math.round(times.reduce((sum, time) => sum + time, 0) / times.length)

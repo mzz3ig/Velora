@@ -1,5 +1,43 @@
 import { Link } from 'react-router-dom'
 
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      ['Features', '#features'],
+      ['Pricing', '#pricing'],
+      ['Start free', '/register'],
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      ['Contact', 'mailto:support@velora.app'],
+      ['Sign in', '/login'],
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      ['Privacy', 'mailto:privacy@velora.app'],
+      ['Terms', 'mailto:support@velora.app'],
+      ['GDPR', 'mailto:privacy@velora.app'],
+    ],
+  },
+]
+
+function FooterLink({ href, children }) {
+  const style = { fontSize: '0.875rem', color: 'var(--text-secondary)', textDecoration: 'none' }
+  const props = {
+    style,
+    onMouseEnter: event => { event.currentTarget.style.color = 'var(--accent)' },
+    onMouseLeave: event => { event.currentTarget.style.color = 'var(--text-secondary)' },
+  }
+
+  if (href.startsWith('/')) return <Link to={href} {...props}>{children}</Link>
+  return <a href={href} {...props}>{children}</a>
+}
+
 export default function Footer() {
   return (
     <footer style={{
@@ -21,47 +59,16 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Product */}
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14 }}>Product</div>
-            {['Features', 'Pricing', 'Changelog', 'Roadmap'].map(item => (
-              <div key={item} style={{ marginBottom: 10 }}>
-                <a href="#" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
-                  onMouseEnter={e => e.target.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}>
-                  {item}
-                </a>
-              </div>
-            ))}
-          </div>
-
-          {/* Company */}
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14 }}>Company</div>
-            {['About', 'Blog', 'Affiliates', 'Contact'].map(item => (
-              <div key={item} style={{ marginBottom: 10 }}>
-                <a href="#" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
-                  onMouseEnter={e => e.target.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}>
-                  {item}
-                </a>
-              </div>
-            ))}
-          </div>
-
-          {/* Legal */}
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14 }}>Legal</div>
-            {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'GDPR'].map(item => (
-              <div key={item} style={{ marginBottom: 10 }}>
-                <a href="#" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
-                  onMouseEnter={e => e.target.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}>
-                  {item}
-                </a>
-              </div>
-            ))}
-          </div>
+          {columns.map(column => (
+            <div key={column.title}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14 }}>{column.title}</div>
+              {column.links.map(([label, href]) => (
+                <div key={label} style={{ marginBottom: 10 }}>
+                  <FooterLink href={href}>{label}</FooterLink>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
         <div style={{
@@ -72,15 +79,7 @@ export default function Footer() {
           <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
             © 2026 Velora. Built for freelancers, by a freelancer.
           </p>
-          <div style={{ display: 'flex', gap: 20 }}>
-            {['Twitter', 'LinkedIn', 'Indie Hackers'].map(s => (
-              <a key={s} href="#" style={{ fontSize: '0.825rem', color: 'var(--text-muted)', textDecoration: 'none' }}
-                onMouseEnter={e => e.target.style.color = 'var(--accent)'}
-                onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}>
-                {s}
-              </a>
-            ))}
-          </div>
+          <Link to="/register" style={{ fontSize: '0.825rem', color: 'var(--text-muted)', textDecoration: 'none' }}>Start free</Link>
         </div>
       </div>
 

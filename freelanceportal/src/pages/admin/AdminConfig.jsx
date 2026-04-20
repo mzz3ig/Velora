@@ -65,15 +65,19 @@ export default function AdminConfig() {
 
       <Section title="Pricing" delay={0.07}>
         <Field label="Starter Price (EUR/month)" value={config.starterPrice} onChange={(value) => set('starterPrice', value)} placeholder="15" type="number" />
+        <Field label="Starter Price (EUR/year)" value={config.starterYearlyPrice} onChange={(value) => set('starterYearlyPrice', value)} placeholder="126" type="number" />
         <Field label="Pro Price (EUR/month)" value={config.proPrice} onChange={(value) => set('proPrice', value)} placeholder="29" type="number" />
+        <Field label="Pro Price (EUR/year)" value={config.proYearlyPrice} onChange={(value) => set('proYearlyPrice', value)} placeholder="242" type="number" />
+        <Field label="Studio Price (EUR/month)" value={config.studioPrice} onChange={(value) => set('studioPrice', value)} placeholder="59" type="number" />
+        <Field label="Studio Price (EUR/year)" value={config.studioYearlyPrice} onChange={(value) => set('studioYearlyPrice', value)} placeholder="499" type="number" />
         <Field label="Starter Portal Limit" value={config.starterPortalLimit} onChange={(value) => set('starterPortalLimit', value)} placeholder="3" type="number" />
         <Field label="Starter Storage (GB)" value={config.starterStorage} onChange={(value) => set('starterStorage', value)} placeholder="5" type="number" />
         <Field label="Pro Storage (GB)" value={config.proStorage} onChange={(value) => set('proStorage', value)} placeholder="20" type="number" />
+        <Field label="Studio Storage (GB)" value={config.studioStorage} onChange={(value) => set('studioStorage', value)} placeholder="100" type="number" />
       </Section>
 
       <Section title="Integrations" delay={0.10}>
         <Field label="Supabase Project URL" value={config.supabaseUrl} onChange={(value) => set('supabaseUrl', value)} placeholder="https://xxx.supabase.co" hint="For reference only. Production values belong in environment variables." />
-        <Field label="Stripe Webhook Secret" value={config.stripeWebhookSecret} onChange={(value) => set('stripeWebhookSecret', value)} placeholder="whsec_..." />
         <Field label="Resend API Key" value={config.resendKey} onChange={(value) => set('resendKey', value)} placeholder="re_..." />
         <Field label="Magic Link Expiry (days)" value={config.magicLinkExpiry} onChange={(value) => set('magicLinkExpiry', value)} placeholder="30" type="number" />
       </Section>

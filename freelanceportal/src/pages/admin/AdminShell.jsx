@@ -111,12 +111,12 @@ export default function AdminShell() {
 
         {/* Footer */}
         <div style={{ borderTop: '1px solid var(--border)', padding: '10px 6px' }}>
-          <NavLink to="/app/dashboard"
+          <NavLink to="/"
             className="nav-item"
             style={{ justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '9px 0' : '8px 10px', marginBottom: 4, fontSize: '0.85rem' }}
-            title={collapsed ? 'Back to App' : undefined}>
+            title={collapsed ? 'Back to site' : undefined}>
             <AppIcon size={15} style={{ flexShrink: 0 }} />
-            {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>Back to App</span>}
+            {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>Back to site</span>}
           </NavLink>
 
           <div style={{

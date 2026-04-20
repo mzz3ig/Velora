@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Users, RefreshCw, Activity, Database } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminStateRows } from '../../lib/api'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -10,12 +10,8 @@ export default function AdminUsers() {
 
   const load = async () => {
     setRefreshing(true)
-    const { data: rows, error } = await supabase
-      .from('velora_state')
-      .select('user_id, store_key, updated_at')
-      .order('updated_at', { ascending: false })
-
-    if (!error && rows) {
+    try {
+      const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
       const byUser = {}
       const activeCutoff = Date.now() - 7 * 86400000
       rows.forEach(r => {
@@ -27,6 +23,8 @@ export default function AdminUsers() {
       setUsers(Object.values(byUser)
         .map((user) => ({ ...user, active: new Date(user.lastSeen).getTime() > activeCutoff }))
         .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen)))
+    } catch {
+      setUsers([])
     }
     setLoading(false); setRefreshing(false)
   }

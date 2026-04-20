@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, CheckCircle2, Clock, Database, Globe, RefreshCw, XCircle } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminMe, adminStateSample } from '../../lib/api'
 
 function HealthRow({ label, status, detail, latency, delay }) {
   const tone = status === 'ok' ? '#22c55e' : status === 'error' ? '#f87171' : '#f59e0b'
@@ -38,26 +38,31 @@ export default function AdminHealth() {
     supabaseAuth: { status: 'loading' },
     supabaseDb: { status: 'loading' },
     supabaseState: { status: 'loading' },
+    backendEnv: { status: 'loading' },
   })
   const [refreshing, setRefreshing] = useState(false)
   const [envVars, setEnvVars] = useState({})
+  const [backendHealth, setBackendHealth] = useState(null)
 
-  const runChecks = async () => {
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+
+  const runChecks = useCallback(async () => {
     setRefreshing(true)
     setChecks({
       supabaseAuth: { status: 'loading' },
       supabaseDb: { status: 'loading' },
       supabaseState: { status: 'loading' },
+      backendEnv: { status: 'loading' },
     })
 
     const t0 = Date.now()
     try {
-      const { data, error } = await supabase.auth.getUser()
+      const data = await adminMe()
       setChecks((current) => ({
         ...current,
         supabaseAuth: {
-          status: error ? 'error' : 'ok',
-          detail: error ? error.message : `Authenticated as ${data.user?.email}`,
+          status: 'ok',
+          detail: `Authenticated as ${data.email}`,
           latency: Date.now() - t0,
         },
       }))
@@ -67,12 +72,12 @@ export default function AdminHealth() {
 
     const t1 = Date.now()
     try {
-      const { error } = await supabase.from('velora_state').select('user_id').limit(1)
+      await adminStateSample(1)
       setChecks((current) => ({
         ...current,
         supabaseDb: {
-          status: error ? 'error' : 'ok',
-          detail: error ? error.message : 'velora_state table reachable',
+          status: 'ok',
+          detail: 'velora_state metadata reachable (via backend)',
           latency: Date.now() - t1,
         },
       }))
@@ -82,17 +87,35 @@ export default function AdminHealth() {
 
     const t2 = Date.now()
     try {
-      const { data, error } = await supabase.from('velora_state').select('user_id, updated_at')
+      const { rows } = await adminStateSample(50)
       setChecks((current) => ({
         ...current,
         supabaseState: {
-          status: error ? 'error' : 'ok',
-          detail: error ? error.message : `${data?.length || 0} state rows found`,
+          status: 'ok',
+          detail: `${rows?.length || 0} state rows sampled`,
           latency: Date.now() - t2,
         },
       }))
     } catch (error) {
       setChecks((current) => ({ ...current, supabaseState: { status: 'error', detail: error.message, latency: Date.now() - t2 } }))
+    }
+
+    const t3 = Date.now()
+    try {
+      const res = await fetch(`${API_BASE}/health?deep=1`)
+      const data = await res.json()
+      setBackendHealth(data)
+      setChecks((current) => ({
+        ...current,
+        backendEnv: {
+          status: res.ok ? 'ok' : 'error',
+          detail: data?.missing?.length ? `Missing: ${data.missing.join(', ')}` : 'Backend env looks good',
+          latency: Date.now() - t3,
+        },
+      }))
+    } catch (error) {
+      setBackendHealth(null)
+      setChecks((current) => ({ ...current, backendEnv: { status: 'error', detail: error.message, latency: Date.now() - t3 } }))
     }
 
     setEnvVars({
@@ -105,9 +128,9 @@ export default function AdminHealth() {
     })
 
     setRefreshing(false)
-  }
+  }, [API_BASE])
 
-  useEffect(() => { runChecks() }, [])
+  useEffect(() => { runChecks() }, [runChecks])
 
   const allOk = Object.values(checks).every((check) => check.status === 'ok')
   const anyError = Object.values(checks).some((check) => check.status === 'error')
@@ -143,6 +166,7 @@ export default function AdminHealth() {
         <HealthRow label="Auth service" {...checks.supabaseAuth} delay={0.05} />
         <HealthRow label="Database (velora_state)" {...checks.supabaseDb} delay={0.08} />
         <HealthRow label="State rows" {...checks.supabaseState} delay={0.11} />
+        <HealthRow label="Backend env (/health)" {...checks.backendEnv} delay={0.14} />
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="card">
@@ -157,6 +181,16 @@ export default function AdminHealth() {
           </div>
         ))}
       </motion.div>
+
+      {backendHealth?.checks?.pgcrypto && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+          className="card" style={{ marginTop: 18 }}>
+          <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: 10 }}>Deep checks</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            pgcrypto: {backendHealth.checks.pgcrypto.ok ? 'ok' : 'error'} · supabase: {backendHealth.checks.supabase?.ok ? 'ok' : 'error'}
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

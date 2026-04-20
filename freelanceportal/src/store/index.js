@@ -59,7 +59,8 @@ export const useInvoiceStore = create(
       }),
       updateInvoice: (id, data) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, ...data } : i) })),
       markPaid: (id) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, status: 'paid', paid: new Date().toISOString().split('T')[0] } : i) })),
-      sendNow: (id) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, status: 'sent' } : i) })),
+      sendNow: (id) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, status: 'sent', viewed: false } : i) })),
+      markViewed: (id) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, viewed: true, viewed_at: new Date().toISOString() } : i) })),
       deleteInvoice: (id) => set(s => ({ invoices: s.invoices.filter(i => i.id !== id) })),
     }),
     { name: 'velora-invoices', storage: dbStorage, version: 1, migrate: () => ({ invoices: [] }) }
@@ -163,6 +164,7 @@ export const useFileStore = create(
     (set) => ({
       files: [],
       addFile: (file) => set(s => ({ files: [{ ...file, id: Date.now(), uploadedAt: new Date().toISOString().split('T')[0] }, ...s.files] })),
+      updateFile: (id, data) => set(s => ({ files: s.files.map(f => f.id === id ? { ...f, ...data } : f) })),
       deleteFile: (id) => set(s => ({ files: s.files.filter(f => f.id !== id) })),
     }),
     { name: 'velora-files', storage: dbStorage, version: 1, migrate: () => ({ files: [] }) }
@@ -215,12 +217,14 @@ export const useSchedulingStore = create(
         { day: 'Saturday', enabled: false, start: '10:00', end: '13:00' },
         { day: 'Sunday', enabled: false, start: '10:00', end: '13:00' },
       ],
+      bufferMinutes: 0,
       addEventType: (et) => set(s => ({ eventTypes: [...s.eventTypes, { id: Date.now(), ...et }] })),
       updateEventType: (id, data) => set(s => ({ eventTypes: s.eventTypes.map(e => e.id === id ? { ...e, ...data } : e) })),
       deleteEventType: (id) => set(s => ({ eventTypes: s.eventTypes.filter(e => e.id !== id) })),
       toggleEventType: (id) => set(s => ({ eventTypes: s.eventTypes.map(e => e.id === id ? { ...e, active: !e.active } : e) })),
       addBooking: (b) => set(s => ({ bookings: [...s.bookings, { id: Date.now(), ...b }] })),
       updateAvailability: (availability) => set(() => ({ availability })),
+      setBuffer: (bufferMinutes) => set(() => ({ bufferMinutes })),
     }),
     { name: 'velora-scheduling', storage: dbStorage, version: 1, migrate: () => ({ eventTypes: [], bookings: [] }) }
   )
@@ -262,10 +266,12 @@ export const useSettingsStore = create(
       account: { firstName: '', lastName: '', email: '' },
       notifications: { proposalAccepted: true, contractSigned: true, paymentReceived: true, invoiceOverdue: true, newMessage: true, weeklyReport: false },
       billing: { plan: 'starter', nextBilling: null, portalsUsed: 0, storageUsed: 0 },
+      preferences: { currency: 'EUR', currencySymbol: '€', language: 'en', timezone: 'Europe/Lisbon' },
       domain: { customDomain: '' },
       updateBranding: (data) => set(s => ({ branding: { ...s.branding, ...data } })),
       updateAccount: (data) => set(s => ({ account: { ...s.account, ...data } })),
       updateNotifications: (data) => set(s => ({ notifications: { ...s.notifications, ...data } })),
+      updatePreferences: (data) => set(s => ({ preferences: { ...s.preferences, ...data } })),
       updateDomain: (data) => set(s => ({ domain: { ...s.domain, ...data } })),
     }),
     { name: 'velora-settings', storage: dbStorage, version: 1, migrate: () => ({ branding: { businessName: '', logo: null, brandColor: '#6366f1', emailSenderName: '' }, account: { firstName: '', lastName: '', email: '' }, notifications: { proposalAccepted: true, contractSigned: true, paymentReceived: true, invoiceOverdue: true, newMessage: true, weeklyReport: false }, billing: { plan: 'starter', nextBilling: null, portalsUsed: 0, storageUsed: 0 }, domain: { customDomain: '' } }) }

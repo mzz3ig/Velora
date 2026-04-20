@@ -1306,6 +1306,33 @@ a,
   transform: translateY(-1px);
 }
 
+.nav-dropdown-link {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary) !important;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+  gap: 8px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-dropdown-link:hover {
+  background: rgba(255,255,255,0.58);
+  color: var(--text-primary) !important;
+  box-shadow: var(--glass-inset);
+}
+
+.nav-dropdown-button {
+  margin-top: 4px;
+}
+
 .apple-landing main {
   padding-top: 0;
   position: relative;
@@ -2972,4 +2999,126 @@ a,
   .apple-highlights { padding-top: 48px; }
   .apple-footer { padding: 28px 16px; }
   .liquid-hero { font-size: 0.95rem; min-height: 50px; min-width: 160px; padding: 0 20px; }
+}
+
+/* ─── Mobile App Responsive ──────────────────────────── */
+
+/* Mobile top bar — hidden on desktop */
+.mobile-topbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Show mobile topbar */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  /* Hide desktop sidebar, show as drawer */
+  .workspace-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    z-index: 50 !important;
+  }
+
+  .workspace-sidebar[data-mobile-open="true"] {
+    transform: translateX(0) !important;
+  }
+
+  /* Overlay: visibility is controlled by JS inline style */
+
+  /* Main fills full width */
+  .workspace-main {
+    width: 100%;
+  }
+
+  /* Page padding */
+  .workspace-content {
+    padding: 16px !important;
+  }
+
+  /* Responsive tables: horizontal scroll */
+  .mobile-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Stack grids to single column on mobile */
+  .mobile-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce modal width on mobile */
+  [style*="position: fixed"][style*="inset: 0"] > div,
+  [style*="position:fixed"][style*="inset:0"] > div {
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px !important;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+
+  /* Kanban: horizontal scroll */
+  .kanban-board {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+
+  /* Reduce padding in stat cards on mobile */
+  .stat-card {
+    padding: 16px !important;
+  }
+}
+
+/* Kanban board wrapper class (applied in Tasks.jsx) */
+.kanban-board {
+  display: flex;
+  gap: 16px;
+}
+
+/* ─── App Page Mobile Padding ───────────────────────── */
+@media (max-width: 768px) {
+  /* Reduce all app page internal padding */
+  .workspace-main > *:not(.mobile-topbar) {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Reports, Expenses page grids */
+  .reports-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Pipeline board: horizontal scroll */
+  .pipeline-board {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Forms grid: single column */
+  .forms-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modals: full width on mobile */
+  .modal-overlay > div {
+    width: calc(100vw - 24px) !important;
+    max-width: 100% !important;
+    margin: 12px auto !important;
+  }
 }

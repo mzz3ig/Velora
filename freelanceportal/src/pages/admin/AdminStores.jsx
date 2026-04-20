@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Layers, RefreshCw } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminStateRows } from '../../lib/api'
 
 const KNOWN_STORES = [
   { key: 'velora-clients', label: 'Clients', color: '#47bfff' },
@@ -30,11 +30,8 @@ export default function AdminStores() {
   const load = async () => {
     setRefreshing(true)
 
-    const { data: rows, error } = await supabase
-      .from('velora_state')
-      .select('user_id, store_key, updated_at')
-
-    if (!error && rows) {
+    try {
+      const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
       const counts = {}
       const activeCounts = {}
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
@@ -46,6 +43,9 @@ export default function AdminStores() {
 
       setStoreCounts({ counts, activeCounts })
       setTotalUsers([...new Set(rows.map((row) => row.user_id))].length)
+    } catch {
+      setStoreCounts({ counts: {}, activeCounts: {} })
+      setTotalUsers(0)
     }
 
     setLoading(false)

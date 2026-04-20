@@ -6,7 +6,8 @@ import {
   Link, AlignLeft, Hash, Calendar, Mail,
   Phone, List, CheckSquare, Upload,
 } from 'lucide-react'
-import { useFormStore } from '../../store'
+import { useFormStore, useClientStore } from '../../store'
+import { supabase } from '../../lib/supabase'
 
 const FIELD_TYPES = [
   { type: 'short_text', label: 'Short text', icon: AlignLeft },
@@ -45,9 +46,11 @@ const TEMPLATES = [
 ]
 
 const EMPTY_FIELD = { type: 'short_text', label: '', required: false, placeholder: '', options: '' }
+const CLIENT_COLORS = ['#a98252', '#8f6d43', '#22c55e', '#38bdf8', '#f59e0b', '#ef4444']
 
 export default function Forms() {
   const { forms, addForm, updateForm, deleteForm } = useFormStore()
+  const { addClient } = useClientStore()
   const [view, setView] = useState('list')
   const [activeForm, setActiveForm] = useState(null)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -55,6 +58,7 @@ export default function Forms() {
   const [formName, setFormName] = useState('')
   const [fields, setFields] = useState([])
   const [copied, setCopied] = useState(false)
+  const [copiedEmbed, setCopiedEmbed] = useState(null)
   const [activeSubmissionForm, setActiveSubmissionForm] = useState(null)
 
   function openBuilder(form = null) {
@@ -73,7 +77,7 @@ export default function Forms() {
   function openFromTemplate(tmpl) {
     setActiveForm(null)
     setFormName(tmpl.name)
-    setFields(tmpl.fields.map(f => ({ ...f, id: Date.now() + Math.random() })))
+    setFields(tmpl.fields.map((f, index) => ({ ...f, id: Date.now() + index })))
     setShowTemplates(false)
     setView('builder')
   }
@@ -102,9 +106,34 @@ export default function Forms() {
     updateForm(form.id, { status: form.status === 'active' ? 'draft' : 'active' })
   }
 
-  function copyLink(formId) {
+  async function publicFormUrl(formId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('You need to be signed in to share forms.')
+    return `${window.location.origin}/form/${user.id}/${formId}`
+  }
+
+  async function copyLink(formId) {
+    const url = await publicFormUrl(formId)
+    navigator.clipboard.writeText(url).catch(() => {})
     setCopied(formId)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  async function copyEmbed(formId) {
+    const url = await publicFormUrl(formId)
+    const snippet = `<iframe src="${url}" style="width:100%;height:600px;border:none;border-radius:8px;" title="Contact form"></iframe>`
+    navigator.clipboard.writeText(snippet).catch(() => {})
+    setCopiedEmbed(formId)
+    setTimeout(() => setCopiedEmbed(null), 2000)
+  }
+
+  function createClientFromSubmission(sub) {
+    const name = sub.data?.['Full name'] || sub.data?.['Your name'] || sub.data?.['Name'] || ''
+    const email = sub.data?.['Email address'] || sub.data?.['Email'] || ''
+    const phone = sub.data?.['Phone number'] || sub.data?.['Phone'] || ''
+    if (!name && !email) { alert('No name or email found in submission to create a client.'); return }
+    addClient({ name: name || email, email, phone, company: '', status: 'active', color: CLIENT_COLORS[sub.id % CLIENT_COLORS.length] })
+    alert(`Client "${name || email}" added to CRM.`)
   }
 
   function viewSubmissions(form) {
@@ -132,10 +161,16 @@ export default function Forms() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {subs.map(sub => (
               <div key={sub.id} className="card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sub.data?.['Full name'] || sub.data?.['Your name'] || 'Anonymous'}</div>
-                  <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-                    {new Date(sub.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+                      {new Date(sub.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                    <button onClick={() => createClientFromSubmission(sub)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#a9825215', border: '1px solid rgba(169,130,82,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}
+                      title="Add this person to your CRM as a client">
+                      + Add to CRM
+                    </button>
                   </div>
                 </div>
                 {Object.entries(sub.data || {}).map(([key, val]) => (
@@ -296,6 +331,11 @@ export default function Forms() {
               <button onClick={() => copyLink(form.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: copied === form.id ? '#22c55e20' : 'var(--bg-secondary)', border: `1px solid ${copied === form.id ? '#22c55e' : 'var(--border)'}`, borderRadius: 7, cursor: 'pointer', fontSize: '0.8rem', color: copied === form.id ? '#22c55e' : 'var(--text-secondary)' }}>
                 {copied === form.id ? <><Check size={13} /> Copied!</> : <><Link size={13} /> Copy link</>}
+              </button>
+              <button onClick={() => copyEmbed(form.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: copiedEmbed === form.id ? '#a9825220' : 'var(--bg-secondary)', border: `1px solid ${copiedEmbed === form.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 7, cursor: 'pointer', fontSize: '0.8rem', color: copiedEmbed === form.id ? 'var(--accent)' : 'var(--text-secondary)' }}
+                title="Copy HTML embed snippet for your website">
+                {copiedEmbed === form.id ? <><Check size={13} /> Embed copied</> : <><Copy size={13} /> Embed</>}
               </button>
               <button onClick={() => openBuilder(form)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Database, RefreshCw, EyeOff } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminStateRows } from '../../lib/api'
 
 const KEY_COLORS = {
   'velora-clients': '#47bfff', 'velora-invoices': '#22c55e', 'velora-projects': '#7e14ff',
@@ -18,11 +18,12 @@ export default function AdminData() {
 
   const load = async () => {
     setRefreshing(true)
-    const { data, error } = await supabase
-      .from('velora_state')
-      .select('id, user_id, store_key, updated_at')
-      .order('updated_at', { ascending: false })
-    setRows(error ? [] : data || [])
+    try {
+      const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
+      setRows(rows || [])
+    } catch {
+      setRows([])
+    }
     setLoading(false); setRefreshing(false)
   }
 
@@ -85,8 +86,10 @@ export default function AdminData() {
               ) : rows.map((row, i) => {
                 const color = KEY_COLORS[row.store_key] || 'var(--accent)'
                 return (
-                  <tr key={row.id} className="table-row" style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
-                    <td style={{ padding: '9px 16px', fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{String(row.id).slice(0, 8)}</td>
+                  <tr key={`${row.user_id}:${row.store_key}`} className="table-row" style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                    <td style={{ padding: '9px 16px', fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      {(row.store_key || '').slice(0, 8)}
+                    </td>
                     <td style={{ padding: '9px 16px', fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{row.user_id.slice(0, 10)}…</td>
                     <td style={{ padding: '9px 16px' }}>
                       <span style={{ fontSize: '0.72rem', color, fontFamily: 'monospace', background: `${color}14`, padding: '3px 8px', borderRadius: 5, fontWeight: 600 }}>

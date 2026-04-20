@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Home, LockKeyhole, Mail, Sparkles, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isAdminEmail } from '../../lib/admin'
 
 export default function Register() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -43,7 +44,7 @@ export default function Register() {
       return
     }
 
-    navigate('/app/dashboard')
+    navigate(isAdminEmail(email) ? '/admin/overview' : '/app/dashboard')
   }
 
   const perks = [
@@ -184,7 +185,7 @@ export default function Register() {
             </button>
 
             <p className="auth-legal">
-              By creating an account you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.
+              By creating an account you agree to our <a href="mailto:support@velora.app">Terms</a> and <a href="mailto:privacy@velora.app">Privacy Policy</a>.
             </p>
           </form>
 

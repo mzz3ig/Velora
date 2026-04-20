@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { rehydrateAppStores } from '../../store'
+import { isAdminEmail } from '../../lib/admin'
 
 export default function ProtectedRoute() {
   const [session, setSession] = useState(null)
@@ -91,6 +92,10 @@ export default function ProtectedRoute() {
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  if (isAdminEmail(session.user?.email)) {
+    return <Navigate to="/admin/overview" replace />
   }
 
   if (location.pathname !== '/onboarding' && onboardingComplete === false) {

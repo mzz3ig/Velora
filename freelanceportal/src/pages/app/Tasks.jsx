@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckSquare, Plus, X, Trash2, Edit2, ChevronDown, ChevronRight, Calendar, Flag, Circle, CheckCircle2, Search, Briefcase, MessageSquare, Send } from 'lucide-react'
+import { CheckSquare, Plus, X, Trash2, Edit2, ChevronDown, ChevronRight, Calendar, Circle, CheckCircle2, Search, Briefcase, MessageSquare, Send, Columns, List } from 'lucide-react'
 import { useTaskStore, useProjectStore } from '../../store'
 
 const PRIORITIES = [
@@ -61,6 +61,91 @@ function CommentPanel({ task, onClose }) {
   )
 }
 
+const KANBAN_COLS = [
+  { id: 'todo', label: 'To Do', color: '#94a3b8' },
+  { id: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+  { id: 'in_review', label: 'In Review', color: '#a98252' },
+  { id: 'done', label: 'Done', color: '#22c55e' },
+]
+
+function KanbanView({ tasks, updateTask, deleteTask, onEdit, onComment }) {
+  const [draggedId, setDraggedId] = useState(null)
+  const [overCol, setOverCol] = useState(null)
+
+  const getColTasks = (colId) => tasks.filter(t => {
+    if (colId === 'done') return t.done
+    if (colId === 'todo') return !t.done && !t.kanban_col
+    return !t.done && t.kanban_col === colId
+  })
+
+  const drop = (colId) => {
+    if (!draggedId) return
+    if (colId === 'done') {
+      updateTask(draggedId, { done: true, kanban_col: 'done' })
+    } else {
+      updateTask(draggedId, { done: false, kanban_col: colId })
+    }
+    setDraggedId(null); setOverCol(null)
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 16, minHeight: 400 }}>
+      {KANBAN_COLS.map(col => {
+        const colTasks = getColTasks(col.id)
+        const isOver = overCol === col.id
+        return (
+          <div key={col.id}
+            onDragOver={e => { e.preventDefault(); setOverCol(col.id) }}
+            onDrop={() => drop(col.id)}
+            onDragLeave={() => setOverCol(null)}
+            style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', background: isOver ? 'rgba(169,130,82,0.06)' : 'var(--bg-secondary)', borderRadius: 12, border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border)'}`, transition: 'all 0.15s' }}>
+            <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: col.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: 700, fontSize: '0.825rem' }}>{col.label}</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--border-light)', padding: '1px 6px', borderRadius: 99, marginLeft: 'auto' }}>{colTasks.length}</span>
+            </div>
+            <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+              {colTasks.map(task => {
+                const p = PRIORITIES.find(x => x.value === task.priority)
+                return (
+                  <motion.div key={task.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                    draggable onDragStart={() => setDraggedId(task.id)}
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', cursor: 'grab', opacity: draggedId === task.id ? 0.45 : 1 }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = col.color + '60'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: p?.color || '#94a3b8', marginTop: 4, flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.825rem', fontWeight: 600, flex: 1, color: task.done ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: task.done ? 'line-through' : 'none' }}>{task.title}</span>
+                    </div>
+                    {task.project !== '— No project —' && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Briefcase size={9} />{task.project}</div>
+                    )}
+                    {task.due_date && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                        <Calendar size={10} />{new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
+                      <button onClick={() => onComment(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><MessageSquare size={12} /></button>
+                      <button onClick={() => onEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><Edit2 size={12} /></button>
+                      <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={12} /></button>
+                    </div>
+                  </motion.div>
+                )
+              })}
+              {colTasks.length === 0 && (
+                <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.72rem', opacity: 0.6 }}>Drop here</div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Tasks() {
   const { tasks, addTask, updateTask, toggleTask, deleteTask, addSubtask, toggleSubtask, deleteSubtask } = useTaskStore()
   const { projects } = useProjectStore()
@@ -74,6 +159,7 @@ export default function Tasks() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [newSubtask, setNewSubtask] = useState({})
   const [commentTask, setCommentTask] = useState(null)
+  const [viewMode, setViewMode] = useState('list')
 
   function openNew() { setForm(EMPTY_FORM); setEditId(null); setShowModal(true) }
   function openEdit(task) {
@@ -106,7 +192,11 @@ export default function Tasks() {
           <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Tasks</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{tasks.filter(t=>!t.done).length} active · {tasks.filter(t=>t.done).length} completed</p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <button onClick={() => setViewMode('list')} style={{ padding: '6px 10px', background: viewMode === 'list' ? 'var(--surface)' : 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}><List size={14} /> List</button>
+            <button onClick={() => setViewMode('kanban')} style={{ padding: '6px 10px', background: viewMode === 'kanban' ? 'var(--surface)' : 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'kanban' ? 'var(--text-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}><Columns size={14} /> Kanban</button>
+          </div>
           <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setShowTemplates(true)}>From template</button>
           <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={openNew}><Plus size={16} /> New task</button>
         </div>
@@ -128,7 +218,15 @@ export default function Tasks() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {viewMode === 'kanban' && (
+        <KanbanView tasks={tasks.filter(t => {
+          if (filterProject !== 'All' && t.project !== filterProject) return false
+          if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
+          return true
+        })} updateTask={updateTask} deleteTask={deleteTask} onEdit={openEdit} onComment={setCommentTask} />
+      )}
+
+      {viewMode === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <AnimatePresence>
           {filtered.map(task => {
             const expanded = expandedTask === task.id
@@ -211,7 +309,7 @@ export default function Tasks() {
             <p>No tasks found.</p>
           </div>
         )}
-      </div>
+      </div>}
 
       <AnimatePresence>
         {showModal && (

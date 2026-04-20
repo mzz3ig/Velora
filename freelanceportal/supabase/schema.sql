@@ -6,6 +6,14 @@ create table if not exists public.velora_state (
   primary key (user_id, store_key)
 );
 
+create table if not exists public.stripe_webhook_events (
+  event_id text primary key,
+  event_type text not null,
+  processed_at timestamptz not null default now()
+);
+
+alter table public.stripe_webhook_events enable row level security;
+
 alter table public.velora_state enable row level security;
 
 drop policy if exists "Users can read their own Velora state" on public.velora_state;
@@ -77,7 +85,8 @@ create policy "Users can update their own onboarding"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.portal_links (
   id uuid primary key default gen_random_uuid(),
@@ -127,7 +136,7 @@ returns text
 language sql
 stable
 as $$
-  select encode(digest(raw_token, 'sha256'), 'hex')
+  select encode(extensions.digest(raw_token, 'sha256'), 'hex')
 $$;
 
 create or replace function public.portal_store_state(owner_id uuid, key text)
@@ -461,7 +470,133 @@ begin
 end;
 $$;
 
+create or replace function public.public_form_payload(owner_id uuid, form_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  store jsonb;
+  form_obj jsonb;
+begin
+  store := coalesce(
+    (select value from public.velora_state where user_id = owner_id and store_key = 'velora-forms'),
+    '{"state":{"forms":[]}}'::jsonb
+  );
+
+  select value into form_obj
+  from jsonb_array_elements(coalesce(store #> '{state,forms}', '[]'::jsonb))
+  where value->>'id' = form_id
+    and coalesce(value->>'status', 'draft') = 'active'
+  limit 1;
+
+  if form_obj is null then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+
+  return jsonb_build_object(
+    'id', form_obj->>'id',
+    'name', form_obj->>'name',
+    'fields', coalesce(form_obj->'fields', '[]'::jsonb)
+  );
+end;
+$$;
+
+create or replace function public.public_submit_form(owner_id uuid, form_id text, response_data jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  store jsonb;
+  next_forms jsonb;
+  form_exists boolean;
+begin
+  if response_data is null or jsonb_typeof(response_data) <> 'object' then
+    return jsonb_build_object('error', 'invalid_response');
+  end if;
+
+  store := coalesce(
+    (select value from public.velora_state where user_id = owner_id and store_key = 'velora-forms'),
+    '{"state":{"forms":[]},"version":0}'::jsonb
+  );
+
+  select exists (
+    select 1
+    from jsonb_array_elements(coalesce(store #> '{state,forms}', '[]'::jsonb))
+    where value->>'id' = form_id
+      and coalesce(value->>'status', 'draft') = 'active'
+  ) into form_exists;
+
+  if not form_exists then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+
+  select jsonb_agg(
+    case when value->>'id' = form_id
+      then value || jsonb_build_object(
+        'submissions',
+        coalesce(value->'submissions', '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+          'id', floor(extract(epoch from clock_timestamp()) * 1000)::bigint,
+          'data', response_data,
+          'submittedAt', clock_timestamp()
+        ))
+      )
+      else value
+    end
+  ) into next_forms
+  from jsonb_array_elements(coalesce(store #> '{state,forms}', '[]'::jsonb));
+
+  insert into public.velora_state (user_id, store_key, value, updated_at)
+  values (owner_id, 'velora-forms', jsonb_set(store, '{state,forms}', coalesce(next_forms, '[]'::jsonb), true), now())
+  on conflict (user_id, store_key) do update set value = excluded.value, updated_at = excluded.updated_at;
+
+  perform public.portal_add_notification(owner_id, 'client', 'New public form submission');
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
 grant execute on function public.get_portal_payload(text) to anon, authenticated;
 grant execute on function public.portal_accept_proposal(text, text, text) to anon, authenticated;
 grant execute on function public.portal_sign_contract(text, text, text) to anon, authenticated;
 grant execute on function public.portal_send_message(text, text) to anon, authenticated;
+grant execute on function public.public_form_payload(uuid, text) to anon, authenticated;
+grant execute on function public.public_submit_form(uuid, text, jsonb) to anon, authenticated;
+
+-- ─── STORAGE BUCKET ────────────────────────────────────────────────────────
+-- Run this once in Supabase SQL editor to create the files storage bucket.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'velora-files',
+  'velora-files',
+  false,
+  52428800, -- 50 MB per file
+  null       -- allow all mime types
+)
+on conflict (id) do nothing;
+
+update storage.buckets
+set public = false
+where id = 'velora-files';
+
+-- RLS policies for the storage bucket
+drop policy if exists "Authenticated users can upload their own files" on storage.objects;
+create policy "Authenticated users can upload their own files"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'velora-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Authenticated users can read their own files" on storage.objects;
+create policy "Authenticated users can read their own files"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'velora-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Authenticated users can delete their own files" on storage.objects;
+create policy "Authenticated users can delete their own files"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'velora-files' and (storage.foldername(name))[1] = auth.uid()::text);

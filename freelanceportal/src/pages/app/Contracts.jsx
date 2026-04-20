@@ -4,8 +4,9 @@ import {
   Plus, ScrollText, CheckCircle2, Clock, Send, FileDown, X,
   PenTool, Type, RotateCcw, Check, Shield, Copy,
 } from 'lucide-react'
-import { useClientStore, useContractStore, useProjectStore } from '../../store'
+import { useClientStore, useContractStore, useProjectStore, useSettingsStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
+import { generateContractPDF } from '../../lib/pdf'
 
 const clauses = [
   { title: 'Payment Terms', text: 'Payment is due within 14 days of invoice date. A late payment fee of 2% per month applies to overdue invoices.' },
@@ -352,11 +353,22 @@ function SignContractModal({ contract, onSign, onClose }) {
 
 export default function Contracts() {
   const { contracts, addContract, markSigned } = useContractStore()
+  const { branding, account } = useSettingsStore()
   const [showModal, setShowModal] = useState(false)
   const [signContract, setSignContract] = useState(null)
   const [portalLink, setPortalLink] = useState(null)
   const [portalError, setPortalError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  function downloadContractPDF(contract) {
+    const settings = {
+      brandColor: branding?.brandColor || '#a98252',
+      businessName: branding?.businessName || [account?.firstName, account?.lastName].filter(Boolean).join(' ') || 'Freelancer',
+      email: account?.email || '',
+    }
+    const doc = generateContractPDF(contract, settings)
+    doc.save(`contract-${contract.project?.replace(/\s+/g, '-').toLowerCase() || contract.id}.pdf`)
+  }
 
   function markContractSigned(id) {
     markSigned(id, { signer_name: 'Preview signer' })
@@ -446,8 +458,10 @@ export default function Contracts() {
                     <Send size={13} />
                   </button>
                 )}
-                {c.status === 'signed' && (
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }} title="Download PDF (Phase 1)">
+                {c.status !== 'draft' && (
+                  <button onClick={() => downloadContractPDF(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }} title="Download PDF"
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
                     <FileDown size={13} />
                   </button>
                 )}

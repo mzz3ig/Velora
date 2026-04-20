@@ -32,10 +32,14 @@ export default function Login() {
       return
     }
 
+    const isAdmin = isAdminEmail(normalizedEmail)
     const requestedPath = location.state?.from?.pathname
     const nextPath = requestedPath?.startsWith('/') ? requestedPath : null
+    const safeNextPath = isAdmin && (nextPath?.startsWith('/app') || nextPath === '/onboarding')
+      ? '/admin/overview'
+      : nextPath
 
-    navigate(nextPath || (isAdminEmail(normalizedEmail) ? '/admin/overview' : '/app/dashboard'), { replace: true })
+    navigate(safeNextPath || (isAdmin ? '/admin/overview' : '/app/dashboard'), { replace: true })
   }
 
   return (
@@ -86,7 +90,7 @@ export default function Login() {
             <div className="auth-field">
               <div className="auth-label-row">
                 <label htmlFor="password">Password</label>
-                <a href="#">Forgot password?</a>
+                <Link to="/forgot-password">Forgot password?</Link>
               </div>
               <div className="auth-input-shell">
                 <LockKeyhole size={17} />

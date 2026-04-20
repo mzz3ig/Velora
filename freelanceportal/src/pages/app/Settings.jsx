@@ -1,15 +1,83 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { User, Palette, Bell, CreditCard, Globe, Save, Check } from 'lucide-react'
+import { User, Palette, Bell, CreditCard, Globe, Save, Check, Upload, X as XIcon, Settings as SettingsIcon, Loader2, ExternalLink } from 'lucide-react'
 import { useSettingsStore } from '../../store'
+import { supabase } from '../../lib/supabase'
+import { createBillingPortal, createSubscriptionCheckout } from '../../lib/api'
 
 const tabs = [
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'account', label: 'Account', icon: User },
+  { id: 'preferences', label: 'Preferences', icon: SettingsIcon },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'domain', label: 'Custom Domain', icon: Globe },
 ]
+
+const CURRENCIES = [
+  { code: 'EUR', symbol: '€', label: 'Euro (€)' },
+  { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
+  { code: 'GBP', symbol: '£', label: 'British Pound (£)' },
+  { code: 'BRL', symbol: 'R$', label: 'Brazilian Real (R$)' },
+  { code: 'CHF', symbol: 'CHF', label: 'Swiss Franc (CHF)' },
+  { code: 'CAD', symbol: 'CA$', label: 'Canadian Dollar (CA$)' },
+  { code: 'AUD', symbol: 'A$', label: 'Australian Dollar (A$)' },
+  { code: 'PLN', symbol: 'zł', label: 'Polish Zloty (zł)' },
+]
+
+const TIMEZONES = [
+  'Europe/Lisbon', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Warsaw',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'America/Sao_Paulo', 'America/Toronto', 'Asia/Dubai', 'Asia/Singapore', 'Australia/Sydney',
+]
+
+function PreferencesTab() {
+  const { preferences, updatePreferences } = useSettingsStore()
+  const pref = preferences || { currency: 'EUR', currencySymbol: '€', language: 'en', timezone: 'Europe/Lisbon' }
+  const [local, setLocal] = useState({ ...pref })
+  const [saved, setSaved] = useState(false)
+
+  const save = () => {
+    const cur = CURRENCIES.find(c => c.code === local.currency)
+    updatePreferences({ ...local, currencySymbol: cur?.symbol || local.currencySymbol })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="card">
+      <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>Preferences</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 420 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Currency</label>
+          <select className="input" value={local.currency} onChange={e => setLocal(l => ({ ...l, currency: e.target.value }))}>
+            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+          </select>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: 4 }}>Used on all invoices, proposals, and reports</p>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Timezone</label>
+          <select className="input" value={local.timezone} onChange={e => setLocal(l => ({ ...l, timezone: e.target.value }))}>
+            {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Language</label>
+          <select className="input" value={local.language} onChange={e => setLocal(l => ({ ...l, language: e.target.value }))}>
+            <option value="en">English</option>
+            <option value="pt">Português</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+          </select>
+        </div>
+        <button onClick={save} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '10px 24px' }}>
+          {saved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save preferences</>}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const brandColors = ['#a98252', '#bca57d', '#ec4899', '#f59e0b', '#22c55e', '#14b8a6', '#8f6d43', '#ef4444']
 
@@ -17,11 +85,25 @@ function BrandingTab() {
   const { branding, updateBranding } = useSettingsStore()
   const [local, setLocal] = useState({ ...branding })
   const [saved, setSaved] = useState(false)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const logoRef = useRef()
 
   const save = () => {
     updateBranding(local)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleLogoFile = (file) => {
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { alert('Logo must be under 2 MB'); return }
+    setLogoUploading(true)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setLocal(l => ({ ...l, logo: e.target.result }))
+      setLogoUploading(false)
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -36,17 +118,32 @@ function BrandingTab() {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Logo</label>
-            <div style={{
-              width: 140, height: 80, borderRadius: 8, border: '2px dashed var(--border)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'border-color 0.2s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-            >
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Upload logo</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>PNG/SVG, max 2MB</span>
-            </div>
+            <input ref={logoRef} type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" style={{ display: 'none' }}
+              onChange={e => { handleLogoFile(e.target.files[0]); e.target.value = '' }} />
+            {local.logo ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <img src={local.logo} alt="logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', padding: 8 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button type="button" onClick={() => logoRef.current.click()} className="btn-ghost" style={{ fontSize: '0.8rem', padding: '6px 12px' }}><Upload size={13} /> Replace</button>
+                  <button type="button" onClick={() => setLocal(l => ({ ...l, logo: null }))} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, color: '#f87171', fontSize: '0.8rem', padding: '5px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><XIcon size={12} /> Remove</button>
+                </div>
+              </div>
+            ) : (
+              <div onClick={() => logoRef.current.click()} style={{
+                width: 160, height: 80, borderRadius: 8, border: '2px dashed var(--border)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'border-color 0.2s', gap: 4,
+              }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                {logoUploading ? <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Loading…</span> : <>
+                  <Upload size={16} color="var(--text-muted)" />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Upload logo</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PNG/SVG/JPG · max 2MB</span>
+                </>}
+              </div>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>Brand color</label>
@@ -78,10 +175,14 @@ function BrandingTab() {
           background: 'var(--bg-secondary)', borderRadius: 8, padding: 20, border: '1px solid var(--border)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: local.brandColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'white' }}>R</span>
-            </div>
-            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{local.businessName}</span>
+            {local.logo ? (
+              <img src={local.logo} alt="logo" style={{ height: 28, maxWidth: 80, objectFit: 'contain', borderRadius: 4 }} />
+            ) : (
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: local.brandColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'white' }}>{(local.businessName || 'V')[0].toUpperCase()}</span>
+              </div>
+            )}
+            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{local.businessName || 'Your Business'}</span>
           </div>
           <div style={{ background: local.brandColor, borderRadius: 8, padding: '10px 18px', display: 'inline-block', fontSize: '0.85rem', fontWeight: 600, color: 'white' }}>
             Accept proposal
@@ -96,11 +197,27 @@ function AccountTab() {
   const { account, updateAccount } = useSettingsStore()
   const [local, setLocal] = useState({ ...account })
   const [saved, setSaved] = useState(false)
+  const [pwForm, setPwForm] = useState({ newPassword: '', confirm: '' })
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwError, setPwError] = useState('')
 
   const save = () => {
     updateAccount(local)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const updatePassword = async (e) => {
+    e.preventDefault()
+    setPwError('')
+    setPwMsg('')
+    if (pwForm.newPassword.length < 8) { setPwError('Use at least 8 characters.'); return }
+    if (pwForm.newPassword !== pwForm.confirm) { setPwError('Passwords do not match.'); return }
+    setPwLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: pwForm.newPassword })
+    setPwLoading(false)
+    if (error) { setPwError(error.message) } else { setPwMsg('Password updated successfully.'); setPwForm({ newPassword: '', confirm: '' }) }
   }
 
   return (
@@ -129,21 +246,21 @@ function AccountTab() {
       </div>
       <div className="card">
         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>Change Password</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 380 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Current password</label>
-            <input className="input" type="password" placeholder="••••••••" />
-          </div>
+        <form onSubmit={updatePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 380 }}>
+          {pwError && <p style={{ fontSize: '0.825rem', color: '#f87171', padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: 6 }}>{pwError}</p>}
+          {pwMsg && <p style={{ fontSize: '0.825rem', color: '#22c55e', padding: '8px 12px', background: 'rgba(34,197,94,0.08)', borderRadius: 6 }}>{pwMsg}</p>}
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>New password</label>
-            <input className="input" type="password" placeholder="••••••••" />
+            <input className="input" type="password" placeholder="At least 8 characters" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Confirm new password</label>
-            <input className="input" type="password" placeholder="••••••••" />
+            <input className="input" type="password" placeholder="Repeat password" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} />
           </div>
-          <button className="btn-primary" style={{ padding: '10px 24px', alignSelf: 'flex-start' }}>Update password</button>
-        </div>
+          <button type="submit" disabled={pwLoading} className="btn-primary" style={{ padding: '10px 24px', alignSelf: 'flex-start' }}>
+            {pwLoading ? 'Updating…' : <><Check size={14} /> Update password</>}
+          </button>
+        </form>
       </div>
       <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8, color: '#f87171' }}>Danger Zone</h3>
@@ -201,37 +318,185 @@ function NotificationsTab() {
   )
 }
 
+const PLANS = {
+  starter: {
+    name: 'Starter',
+    prices: { monthly: '€15/month', yearly: '€126/year' },
+    color: '#38bdf8',
+    features: ['3 active portals', '5 GB storage', 'Velora subdomain', 'Core features'],
+  },
+  pro: {
+    name: 'Pro',
+    prices: { monthly: '€29/month', yearly: '€242/year' },
+    color: '#a98252',
+    features: ['Unlimited portals', 'Custom domain', '20 GB storage', 'Automations & analytics'],
+  },
+  studio: {
+    name: 'Studio',
+    prices: { monthly: '€59/month', yearly: '€499/year' },
+    color: '#22c55e',
+    features: ['Team access', 'Advanced templates', '100 GB storage', 'Priority support'],
+  },
+}
+
 function BillingTab() {
-  const { billing } = useSettingsStore()
+  const { billing, account } = useSettingsStore()
+  const plan = billing?.plan || 'starter'
+  const billingInterval = billing?.billingInterval || 'monthly'
+  const planMeta = PLANS[plan] || PLANS.starter
+  const availablePlans = Object.entries(PLANS)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState('')
+  const [billingError, setBillingError] = useState('')
+  const [selectedInterval, setSelectedInterval] = useState(billingInterval)
+
+  async function openPortal() {
+    const customerId = billing?.stripeCustomerId
+    if (!customerId) {
+      setBillingError('No Stripe customer found. Subscribe to a plan first.')
+      return
+    }
+    setPortalLoading(true)
+    setBillingError('')
+    try {
+      const { url } = await createBillingPortal({ customerId, returnUrl: window.location.href })
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setBillingError(err.message || 'Could not open billing portal.')
+    } finally {
+      setPortalLoading(false)
+    }
+  }
+
+  async function startSubscription(targetPlan, targetInterval = selectedInterval) {
+    setCheckoutLoading(`${targetPlan}-${targetInterval}`)
+    setBillingError('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not signed in')
+
+      const { url } = await createSubscriptionCheckout({
+        email: account?.email || user.email,
+        plan: targetPlan,
+        interval: targetInterval,
+        userId: user.id,
+        trialDays: 14,
+      })
+      window.location.href = url
+    } catch (err) {
+      setBillingError(err.message || 'Could not start subscription.')
+    } finally {
+      setCheckoutLoading('')
+    }
+  }
+
+  const Checkmark = ({ color }) => (
+    <div style={{ width: 18, height: 18, borderRadius: '50%', background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+    </div>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {billingError && (
+        <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: '0.85rem', color: '#f87171' }}>
+          {billingError}
+        </div>
+      )}
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Current Plan</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>You are on the {billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)} plan</p>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              You are on the <strong>{planMeta.name}</strong> plan · {planMeta.prices[billingInterval] || planMeta.prices.monthly}
+              {billing?.subscriptionStatus === 'trialing' && (
+                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#22c55e', fontWeight: 600 }}>· Trial active</span>
+              )}
+              {billing?.cancelAtPeriodEnd && (
+                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#f87171', fontWeight: 600 }}>· Cancels {billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd).toLocaleDateString() : 'soon'}</span>
+              )}
+            </p>
           </div>
-          <div style={{ background: 'var(--accent)', borderRadius: 8, padding: '5px 14px', fontSize: '0.85rem', fontWeight: 700, color: 'white' }}>{billing.plan.toUpperCase()}</div>
+          <div style={{ background: planMeta.color, borderRadius: 8, padding: '5px 14px', fontSize: '0.85rem', fontWeight: 700, color: 'white' }}>
+            {planMeta.name.toUpperCase()}
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
-          {[
-            { label: 'Active portals', value: `${billing.portalsUsed} / unlimited` },
-            { label: 'Storage used', value: `${billing.storageUsed} GB / 20 GB` },
-            { label: 'Next billing', value: billing.nextBilling },
-          ].map(s => (
-            <div key={s.label} style={{
-              background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)',
-            }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{s.value}</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+          {planMeta.features.map(f => (
+            <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              <Checkmark color={planMeta.color} /> {f}
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-ghost" style={{ padding: '9px 20px' }}>Manage subscription</button>
-          <button className="btn-ghost" style={{ padding: '9px 20px' }}>Download invoices</button>
+
+        <button onClick={openPortal} disabled={portalLoading} className="btn-ghost" style={{ padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {portalLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ExternalLink size={14} />}
+          Manage subscription & invoices
+        </button>
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Choose a plan</h3>
+          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, padding: 3, gap: 3 }}>
+            {['monthly', 'yearly'].map(interval => (
+              <button
+                key={interval}
+                type="button"
+                onClick={() => setSelectedInterval(interval)}
+                style={{
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '7px 12px',
+                  cursor: 'pointer',
+                  background: selectedInterval === interval ? 'var(--accent)' : 'transparent',
+                  color: selectedInterval === interval ? 'white' : 'var(--text-secondary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                }}
+              >
+                {interval === 'monthly' ? 'Monthly' : 'Yearly'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+          {availablePlans.map(([planKey, meta]) => {
+            const loading = checkoutLoading === `${planKey}-${selectedInterval}`
+            const isCurrentPlan = planKey === plan && selectedInterval === billingInterval && billing?.stripeCustomerId
+
+            return (
+              <div key={planKey} style={{ border: `1px solid ${isCurrentPlan ? meta.color : 'var(--border)'}`, borderRadius: 8, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800 }}>{meta.name}</h4>
+                  <span style={{ color: meta.color, fontSize: '0.82rem', fontWeight: 800 }}>{meta.prices[selectedInterval]}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 104, marginBottom: 14 }}>
+                  {meta.features.map(f => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      <Checkmark color={meta.color} /> {f}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => billing?.stripeCustomerId ? openPortal() : startSubscription(planKey, selectedInterval)}
+                  disabled={loading || portalLoading || isCurrentPlan}
+                  className="btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '9px 14px', display: 'inline-flex', alignItems: 'center', gap: 8, background: meta.color, opacity: isCurrentPlan ? 0.55 : 1 }}
+                >
+                  {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                  {isCurrentPlan ? 'Current plan' : billing?.stripeCustomerId ? 'Manage in portal' : 'Start free trial'}
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
@@ -283,6 +548,7 @@ export default function Settings() {
     switch (activeTab) {
       case 'branding': return <BrandingTab />
       case 'account': return <AccountTab />
+      case 'preferences': return <PreferencesTab />
       case 'notifications': return <NotificationsTab />
       case 'billing': return <BillingTab />
       case 'domain': return <DomainTab />

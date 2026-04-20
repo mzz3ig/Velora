@@ -1,6 +1,6 @@
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { CreditCard, CheckCircle2, Lock, Shield, ExternalLink } from 'lucide-react'
+import { CreditCard, CheckCircle2, Lock, Shield, ExternalLink, AlertCircle } from 'lucide-react'
 
 export default function PortalInvoice() {
   const { freelancer, portal } = useOutletContext()
@@ -19,14 +19,18 @@ export default function PortalInvoice() {
 
   const discounted = Number(invoice.amount || 0) * (1 - Number(invoice.discount || 0) / 100)
   const total = discounted * (1 + Number(invoice.tax || 0) / 100)
-  const items = invoice.items?.length ? invoice.items : [{ description: invoice.project || invoice.type || 'Invoice', amount: total }]
+  const items = invoice.items?.length ? invoice.items : [{ description: invoice.project || invoice.type || 'Services', amount: total }]
   const paid = invoice.status === 'paid'
-  const paymentUrl = invoice.paymentUrl || invoice.payment_url || invoice.stripePaymentUrl
+
+  // Prefer Stripe Checkout URL, then legacy manual payment URL
+  const paymentUrl = invoice.stripeCheckoutUrl || invoice.paymentUrl || invoice.payment_url
+
+  const brandColor = freelancer?.brand_color || '#a98252'
 
   return (
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Invoice</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>From {freelancer.name}</p>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>From {freelancer?.name}</p>
 
       <div className="card" style={{ padding: '24px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -51,11 +55,28 @@ export default function PortalInvoice() {
             {items.map((item, i) => (
               <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.description}</td>
-                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>€{Number(item.amount || 0).toLocaleString()}</td>
+                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>€{Number(item.amount || 0).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {(Number(invoice.discount) > 0 || Number(invoice.tax) > 0) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+            {Number(invoice.discount) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                <span>Discount ({invoice.discount}%)</span>
+                <span>-€{(Number(invoice.amount) * invoice.discount / 100).toFixed(2)}</span>
+              </div>
+            )}
+            {Number(invoice.tax) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                <span>IVA / VAT ({invoice.tax}%)</span>
+                <span>+€{(discounted * invoice.tax / 100).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>Total due</span>
@@ -68,7 +89,7 @@ export default function PortalInvoice() {
           className="card" style={{ padding: '32px', textAlign: 'center' }}>
           <CheckCircle2 size={48} color="#22c55e" style={{ margin: '0 auto 12px' }} />
           <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 4 }}>Payment received!</div>
-          <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>Receipt sent to your email</div>
+          <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>Thank you — your payment has been confirmed.</div>
         </motion.div>
       ) : (
         <div className="card" style={{ padding: '24px' }}>
@@ -77,27 +98,38 @@ export default function PortalInvoice() {
             <span style={{ fontWeight: 700, fontSize: '0.925rem', color: 'var(--text-primary)' }}>Pay now</span>
           </div>
 
-          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '16px', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
-              <Lock size={14} />
-              {paymentUrl ? 'You will be sent to the secure payment page configured by the freelancer.' : 'This invoice does not have a payment link connected yet. Message the freelancer for payment instructions.'}
+          {paymentUrl ? (
+            <>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <Lock size={14} style={{ flexShrink: 0 }} />
+                Secure payment powered by Stripe. You will be redirected to complete your payment safely.
+              </div>
+
+              <a href={paymentUrl} target="_blank" rel="noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  width: '100%', padding: '14px', borderRadius: 10, border: 'none',
+                  background: brandColor, color: 'white', fontWeight: 700, fontSize: '1rem',
+                  textDecoration: 'none', transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                <ExternalLink size={15} /> Pay €{total.toFixed(2)}
+              </a>
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 16px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8 }}>
+              <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                Payment link not yet attached to this invoice. Please message {freelancer?.name || 'the freelancer'} for payment instructions.
+              </p>
             </div>
-          </div>
+          )}
 
-          <button onClick={() => paymentUrl && window.open(paymentUrl, '_blank', 'noopener,noreferrer')} disabled={!paymentUrl}
-            style={{
-              width: '100%', padding: '14px', borderRadius: 10, border: 'none', cursor: paymentUrl ? 'pointer' : 'not-allowed',
-              background: freelancer.brand_color, color: 'white', fontWeight: 700, fontSize: '1rem',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              opacity: paymentUrl ? 1 : 0.5, transition: 'opacity 0.2s',
-            }}>
-            {paymentUrl ? <><ExternalLink size={15} /> Pay €{total.toFixed(2)}</> : 'Payment link not connected'}
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 }}>
             <Shield size={12} color="var(--text-muted)" />
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Payments are processed outside Velora through the freelancer's connected payment link.
+              Payments are securely processed by Stripe. Velora never stores card details.
             </span>
           </div>
         </div>

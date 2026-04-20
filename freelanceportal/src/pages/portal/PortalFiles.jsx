@@ -1,12 +1,13 @@
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FolderOpen, Download, Upload, FileText, Image, Archive } from 'lucide-react'
+import { Download, Upload, FileText, Image, Archive } from 'lucide-react'
+import { getPortalFileUrl } from '../../lib/portal'
 
 const typeIcon = { pdf: FileText, image: Image, zip: Archive }
 const typeColor = { pdf: '#ef4444', image: '#06b6d4', zip: '#f59e0b' }
 
 export default function PortalFiles() {
-  const { freelancer, portal } = useOutletContext()
+  const { token, freelancer, portal } = useOutletContext()
   const files = portal?.files || []
 
   const formatSize = (size) => {
@@ -14,6 +15,18 @@ export default function PortalFiles() {
     if (size < 1024) return `${size} B`
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
     return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  async function openFile(file) {
+    const directUrl = file.url || file.publicUrl
+    if (directUrl) {
+      window.open(directUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    if (!file.storagePath) return
+    const url = await getPortalFileUrl(token, file.storagePath)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -48,8 +61,8 @@ export default function PortalFiles() {
                   {formatSize(file.size)} · {file.uploadedAt || file.date || '—'} · {file.fromClient ? 'uploaded by you' : `from ${freelancer.name}`}
                 </div>
               </div>
-              <button onClick={() => file.url && window.open(file.url, '_blank', 'noopener,noreferrer')} disabled={!file.url}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 7, cursor: file.url ? 'pointer' : 'not-allowed', color: 'var(--text-secondary)', fontSize: '0.775rem', opacity: file.url ? 1 : 0.5 }}>
+              <button onClick={() => openFile(file)} disabled={!file.url && !file.publicUrl && !file.storagePath}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 7, cursor: (file.url || file.publicUrl || file.storagePath) ? 'pointer' : 'not-allowed', color: 'var(--text-secondary)', fontSize: '0.775rem', opacity: (file.url || file.publicUrl || file.storagePath) ? 1 : 0.5 }}>
                 <Download size={12} /> Download
               </button>
             </motion.div>

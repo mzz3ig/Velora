@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   AnimatePresence,
   motion,
@@ -11,6 +11,7 @@ import {
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock3,
   CreditCard,
@@ -20,7 +21,13 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  Settings,
+  LayoutDashboard,
+  LogOut,
+  UserRound,
 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { isAdminEmail } from '../lib/admin'
 
 const heroImage =
   'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1800&q=80'
@@ -185,6 +192,40 @@ function LiquidLink({ children, className = '', href, to }) {
 }
 
 function GlobalNav() {
+  const [session, setSession] = useState(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const navigate = useNavigate()
+  const userEmail = session?.user?.email || ''
+  const isAdmin = isAdminEmail(userEmail)
+  const privatePath = isAdmin ? '/admin/overview' : '/app/dashboard'
+  const settingsPath = isAdmin ? '/admin/config' : '/app/settings'
+  const displayName = session?.user?.user_metadata?.first_name
+    || userEmail.split('@')[0]
+    || 'Account'
+
+  useEffect(() => {
+    let mounted = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSession(data.session)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) setSession(nextSession)
+    })
+
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
+  }, [])
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setProfileOpen(false)
+    navigate('/')
+  }
+
   return (
     <header className="apple-global-nav">
       <Link className="apple-brand" to="/" aria-label="Velora home">
@@ -198,8 +239,60 @@ function GlobalNav() {
         <a href="#faq">FAQ</a>
       </nav>
       <div className="apple-nav-actions">
-        <Link to="/login" className="nav-sign-in">Sign in</Link>
-        <Link to="/register" className="nav-cta">Start free →</Link>
+        {session ? (
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen(open => !open)}
+              className="nav-cta"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer' }}
+            >
+              <UserRound size={15} />
+              {displayName}
+              <ChevronDown size={14} />
+            </button>
+            <AnimatePresence>
+              {profileOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.18 }}
+                  className="glass"
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 'calc(100% + 10px)',
+                    width: 230,
+                    borderRadius: 8,
+                    padding: 8,
+                    zIndex: 200,
+                    boxShadow: 'var(--glass-inset), var(--glass-shadow)',
+                  }}
+                >
+                  <div style={{ padding: '9px 10px 11px', borderBottom: '1px solid var(--border-light)', marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>{displayName}</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
+                  </div>
+                  <Link to={settingsPath} onClick={() => setProfileOpen(false)} className="nav-dropdown-link">
+                    <Settings size={14} /> Settings
+                  </Link>
+                  <Link to={privatePath} onClick={() => setProfileOpen(false)} className="nav-dropdown-link">
+                    <LayoutDashboard size={14} /> {isAdmin ? 'Managing area' : 'Private area'}
+                  </Link>
+                  <button type="button" onClick={signOut} className="nav-dropdown-link nav-dropdown-button">
+                    <LogOut size={14} /> Sign out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <>
+            <Link to="/login" className="nav-sign-in">Sign in</Link>
+            <Link to="/register" className="nav-cta">Start free →</Link>
+          </>
+        )}
       </div>
     </header>
   )

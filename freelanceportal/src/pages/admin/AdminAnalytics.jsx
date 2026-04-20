@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, RefreshCw, Users, Activity, Database } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { adminStateRows } from '../../lib/api'
 
 function Bar({ label, value, max, color }) {
   return (
@@ -39,47 +39,50 @@ export default function AdminAnalytics() {
 
   const load = async () => {
     setRefreshing(true)
-    const { data: rows, error } = await supabase
-      .from('velora_state')
-      .select('user_id, store_key, updated_at')
+    try {
+      const { rows } = await adminStateRows({ limit: 20000, order: 'desc' })
+      if (!rows) {
+        setData({ error: 'Failed to load' })
+        setLoading(false); setRefreshing(false)
+        return
+      }
 
-    if (error || !rows) {
+      const users = [...new Set(rows.map(r => r.user_id))]
+      const storeCount = {}
+      rows.forEach(r => { storeCount[r.store_key] = (storeCount[r.store_key] || 0) + 1 })
+
+      const rowsPerUser = {}
+      rows.forEach(r => { rowsPerUser[r.user_id] = (rowsPerUser[r.user_id] || 0) + 1 })
+      const rpuBuckets = { '1–5': 0, '6–10': 0, '11–15': 0, '16+': 0 }
+      Object.values(rowsPerUser).forEach(n => {
+        if (n <= 5) rpuBuckets['1–5']++
+        else if (n <= 10) rpuBuckets['6–10']++
+        else if (n <= 15) rpuBuckets['11–15']++
+        else rpuBuckets['16+']++
+      })
+
+      const dayActivity = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      rows.forEach(r => { const d = dayNames[new Date(r.updated_at).getDay()]; dayActivity[d] = (dayActivity[d] || 0) + 1 })
+
+      const hourActivity = {}
+      rows.forEach(r => { const h = new Date(r.updated_at).getHours(); hourActivity[h] = (hourActivity[h] || 0) + 1 })
+
+      const cohorts = {}
+      users.forEach(uid => {
+        const userRows = rows.filter(r => r.user_id === uid)
+        const earliest = userRows.reduce((min, r) => r.updated_at < min ? r.updated_at : min, userRows[0].updated_at)
+        const month = earliest.slice(0, 7)
+        cohorts[month] = (cohorts[month] || 0) + 1
+      })
+
+      setData({ users, rows, storeCount, rpuBuckets, dayActivity, hourActivity, cohorts })
+      setLoading(false); setRefreshing(false)
+    } catch (error) {
       setData({ error: error?.message || 'Failed to load' })
       setLoading(false); setRefreshing(false)
       return
     }
-
-    const users = [...new Set(rows.map(r => r.user_id))]
-    const storeCount = {}
-    rows.forEach(r => { storeCount[r.store_key] = (storeCount[r.store_key] || 0) + 1 })
-
-    const rowsPerUser = {}
-    rows.forEach(r => { rowsPerUser[r.user_id] = (rowsPerUser[r.user_id] || 0) + 1 })
-    const rpuBuckets = { '1–5': 0, '6–10': 0, '11–15': 0, '16+': 0 }
-    Object.values(rowsPerUser).forEach(n => {
-      if (n <= 5) rpuBuckets['1–5']++
-      else if (n <= 10) rpuBuckets['6–10']++
-      else if (n <= 15) rpuBuckets['11–15']++
-      else rpuBuckets['16+']++
-    })
-
-    const dayActivity = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    rows.forEach(r => { const d = dayNames[new Date(r.updated_at).getDay()]; dayActivity[d] = (dayActivity[d] || 0) + 1 })
-
-    const hourActivity = {}
-    rows.forEach(r => { const h = new Date(r.updated_at).getHours(); hourActivity[h] = (hourActivity[h] || 0) + 1 })
-
-    const cohorts = {}
-    users.forEach(uid => {
-      const userRows = rows.filter(r => r.user_id === uid)
-      const earliest = userRows.reduce((min, r) => r.updated_at < min ? r.updated_at : min, userRows[0].updated_at)
-      const month = earliest.slice(0, 7)
-      cohorts[month] = (cohorts[month] || 0) + 1
-    })
-
-    setData({ users, rows, storeCount, rpuBuckets, dayActivity, hourActivity, cohorts })
-    setLoading(false); setRefreshing(false)
   }
 
   useEffect(() => {

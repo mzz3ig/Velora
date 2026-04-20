@@ -10,7 +10,7 @@ const DURATIONS = [15, 30, 45, 60, 90, 120]
 const EMPTY_EVENT = { name: '', duration: 30, color: '#a98252', description: '', price: 0, active: true, location: 'Google Meet' }
 
 export default function Scheduling() {
-  const { eventTypes, bookings, availability, addEventType, updateEventType, deleteEventType, toggleEventType, updateAvailability } = useSchedulingStore()
+  const { eventTypes, bookings, availability, bufferMinutes, addEventType, updateEventType, deleteEventType, toggleEventType, updateAvailability, setBuffer } = useSchedulingStore()
   const [tab, setTab] = useState('bookings')
   const [showModal, setShowModal] = useState(false)
   const [editEvent, setEditEvent] = useState(null)
@@ -190,8 +190,20 @@ export default function Scheduling() {
       )}
 
       {tab === 'availability' && (
-        <div>
-          <div className="card" style={{ padding: '24px', maxWidth: 560 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12 }}>Buffer between meetings</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>Add padding time between bookings so you're never back-to-back.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <select className="input" value={bufferMinutes || 0} onChange={e => setBuffer(parseInt(e.target.value))} style={{ maxWidth: 180 }}>
+                {[0, 5, 10, 15, 30, 45, 60].map(v => <option key={v} value={v}>{v === 0 ? 'No buffer' : `${v} minutes`}</option>)}
+              </select>
+              {(bufferMinutes || 0) > 0 && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--accent)' }}>✓ {bufferMinutes} min buffer active</span>
+              )}
+            </div>
+          </div>
+          <div className="card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <Globe size={16} color="var(--text-muted)" />
               <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>Timezone: Europe/Lisbon (UTC+1)</span>

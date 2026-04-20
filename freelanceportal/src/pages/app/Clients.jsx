@@ -174,7 +174,8 @@ export default function Clients() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 100px', padding: '12px 20px', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ minWidth: 580, display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 100px', padding: '12px 20px', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
           <span>Client</span><span>Contact</span><span>Tags</span><span>Status</span><span></span>
         </div>
 
@@ -182,7 +183,7 @@ export default function Clients() {
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No clients found</div>
         ) : filtered.map((client, i) => (
           <motion.div key={client.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 100px', padding: '16px 20px', borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none', alignItems: 'center', position: 'relative' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 100px', minWidth: 580, padding: '16px 20px', borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none', alignItems: 'center', position: 'relative' }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.025)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -228,6 +229,7 @@ export default function Clients() {
             </div>
           </motion.div>
         ))}
+        </div>{/* end scroll wrapper */}
       </motion.div>
 
       <AnimatePresence>

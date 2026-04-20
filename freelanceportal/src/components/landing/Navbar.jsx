@@ -1,17 +1,48 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserRound, X } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { isAdminEmail } from '../../lib/admin'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [session, setSession] = useState(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const navigate = useNavigate()
+  const userEmail = session?.user?.email || ''
+  const isAdmin = isAdminEmail(userEmail)
+  const privatePath = isAdmin ? '/admin/overview' : '/app/dashboard'
+  const settingsPath = isAdmin ? '/admin/config' : '/app/settings'
+  const displayName = session?.user?.user_metadata?.first_name || userEmail.split('@')[0] || 'Account'
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', handler)
     return () => window.removeEventListener('scroll', handler)
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSession(data.session)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) setSession(nextSession)
+    })
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
+  }, [])
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setProfileOpen(false)
+    setMenuOpen(false)
+    navigate('/')
+  }
 
   return (
     <motion.nav
@@ -57,20 +88,40 @@ export default function Navbar() {
 
       {/* Right CTA */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Link to="/login" style={{ textDecoration: 'none' }} className="nav-links-desktop">
-          <span style={{
-            fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500,
-            cursor: 'pointer', transition: 'color 0.22s var(--ease-apple)', letterSpacing: 0,
-          }}
-            onMouseEnter={e => e.target.style.color = 'var(--text-primary)'}
-            onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
-          >Sign in</span>
-        </Link>
-        <Link to="/register" style={{ textDecoration: 'none' }}>
-          <button className="btn-primary" style={{ padding: '7px 16px', fontSize: '0.84rem' }}>
-            Get started
-          </button>
-        </Link>
+        {session ? (
+          <div style={{ position: 'relative' }} className="nav-links-desktop">
+            <button onClick={() => setProfileOpen(open => !open)} className="btn-primary" style={{ padding: '7px 12px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <UserRound size={14} /> {displayName} <ChevronDown size={13} />
+            </button>
+            <AnimatePresence>
+              {profileOpen && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  className="glass" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 220, borderRadius: 8, padding: 8, boxShadow: 'var(--glass-inset), var(--glass-shadow)' }}>
+                  <Link to={settingsPath} onClick={() => setProfileOpen(false)} className="nav-dropdown-link"><Settings size={14} /> Settings</Link>
+                  <Link to={privatePath} onClick={() => setProfileOpen(false)} className="nav-dropdown-link"><LayoutDashboard size={14} /> {isAdmin ? 'Managing area' : 'Private area'}</Link>
+                  <button onClick={signOut} className="nav-dropdown-link nav-dropdown-button"><LogOut size={14} /> Sign out</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <>
+            <Link to="/login" style={{ textDecoration: 'none' }} className="nav-links-desktop">
+              <span style={{
+                fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500,
+                cursor: 'pointer', transition: 'color 0.22s var(--ease-apple)', letterSpacing: 0,
+              }}
+                onMouseEnter={e => e.target.style.color = 'var(--text-primary)'}
+                onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
+              >Sign in</span>
+            </Link>
+            <Link to="/register" style={{ textDecoration: 'none' }}>
+              <button className="btn-primary" style={{ padding: '7px 16px', fontSize: '0.84rem' }}>
+                Get started
+              </button>
+            </Link>
+          </>
+        )}
         <button onClick={() => setMenuOpen(!menuOpen)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', display: 'none', padding: 4 }}
           className="nav-menu-btn">
@@ -95,9 +146,17 @@ export default function Navbar() {
               </a>
             ))}
             <div style={{ height: 1, background: 'var(--border-light)', margin: '6px 0' }} />
-            <Link to="/login" style={{ textDecoration: 'none' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: 500 }}>Sign in</span>
-            </Link>
+            {session ? (
+              <>
+                <Link to={settingsPath} onClick={() => setMenuOpen(false)} className="nav-dropdown-link"><Settings size={14} /> Settings</Link>
+                <Link to={privatePath} onClick={() => setMenuOpen(false)} className="nav-dropdown-link"><LayoutDashboard size={14} /> {isAdmin ? 'Managing area' : 'Private area'}</Link>
+                <button onClick={signOut} className="nav-dropdown-link nav-dropdown-button"><LogOut size={14} /> Sign out</button>
+              </>
+            ) : (
+              <Link to="/login" style={{ textDecoration: 'none' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: 500 }}>Sign in</span>
+              </Link>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

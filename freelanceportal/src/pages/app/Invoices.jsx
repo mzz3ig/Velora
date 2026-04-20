@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2 } from 'lucide-react'
-import { useInvoiceStore, useClientStore, useNotificationStore } from '../../store'
+import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2, FileDown, ExternalLink, Loader2 } from 'lucide-react'
+import { useInvoiceStore, useClientStore, useNotificationStore, useSettingsStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
+import { generateInvoicePDF } from '../../lib/pdf'
+import { createInvoiceCheckout } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
 
 const statusMeta = {
   paid: { label: 'Paid', icon: CheckCircle2, color: '#4ade80', bg: 'rgba(34,197,94,0.15)' },
@@ -120,12 +123,52 @@ function exportCSV(invoices) {
 }
 
 export default function Invoices() {
-  const { invoices, markPaid, sendNow, deleteInvoice } = useInvoiceStore()
+  const { invoices, markPaid, markViewed, deleteInvoice, updateInvoice } = useInvoiceStore()
   const { addNotification } = useNotificationStore()
+  const { branding, account } = useSettingsStore()
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [portalUrl, setPortalUrl] = useState('')
   const [portalError, setPortalError] = useState('')
+  const [checkoutLoading, setCheckoutLoading] = useState(null) // invoice id being processed
+
+  function downloadInvoicePDF(inv) {
+    const settings = {
+      brandColor: branding?.brandColor || '#a98252',
+      businessName: branding?.businessName || [account?.firstName, account?.lastName].filter(Boolean).join(' ') || 'Freelancer',
+      email: account?.email || '',
+    }
+    const doc = generateInvoicePDF(inv, settings)
+    doc.save(`invoice-${inv.id}.pdf`)
+  }
+
+  async function createStripeCheckout(inv) {
+    setCheckoutLoading(inv.id)
+    setPortalError('')
+    setPortalUrl('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not signed in')
+
+      const net = inv.amount * (1 - (inv.discount || 0) / 100) * (1 + (inv.tax || 0) / 100)
+      const { url, sessionId } = await createInvoiceCheckout({
+        invoiceId: inv.id,
+        amount: net.toFixed(2),
+        currency: 'eur',
+        description: `${inv.project} — ${inv.id}`,
+        clientEmail: inv.clientEmail || undefined,
+        userId: user.id,
+      })
+
+      // Save the checkout URL to the invoice so portal can use it
+      updateInvoice(inv.id, { stripeCheckoutUrl: url, stripeSessionId: sessionId, status: inv.status === 'draft' ? 'sent' : inv.status })
+      setPortalUrl(url)
+    } catch (err) {
+      setPortalError(err.message || 'Could not create payment link.')
+    } finally {
+      setCheckoutLoading(null)
+    }
+  }
 
   const filtered = filter === 'all' ? invoices : invoices.filter(i => i.status === filter)
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0)
@@ -198,7 +241,8 @@ export default function Invoices() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '100px 1.5fr 1.5fr 130px 1fr 190px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ minWidth: 680, padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '100px 1.5fr 1.5fr 130px 1fr 190px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
           <span>Invoice</span><span>Project</span><span>Client</span><span>Amount</span><span>Due</span><span>Status</span>
         </div>
         {filtered.map((inv, i) => {
@@ -206,7 +250,7 @@ export default function Invoices() {
           const net = computeNet(inv)
           return (
             <motion.div key={inv.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-              style={{ display: 'grid', gridTemplateColumns: '100px 1.5fr 1.5fr 130px 1fr 190px', padding: '15px 20px', borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}
+              style={{ display: 'grid', gridTemplateColumns: '100px 1.5fr 1.5fr 130px 1fr 190px', minWidth: 680, padding: '15px 20px', borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -228,19 +272,34 @@ export default function Invoices() {
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600, padding: '3px 9px', borderRadius: 999, background: s.bg, color: s.color }}>
                   <s.icon size={10} /> {s.label}
                 </span>
-                {inv.viewed && inv.status === 'sent' && <span title="Viewed" style={{ fontSize: '0.68rem', color: '#9a7850' }}><Eye size={11} /></span>}
+                {inv.viewed && <span title={`Viewed${inv.viewed_at ? ' · ' + new Date(inv.viewed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}`} style={{ fontSize: '0.68rem', color: '#22c55e', display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={11} /> Seen</span>}
+                {!inv.viewed && inv.status === 'sent' && <button onClick={() => markViewed(inv.id)} title="Mark as viewed by client" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={11} /></button>}
                 {inv.status === 'sent' && (
                   <button onClick={() => handleMarkPaid(inv)} title="Mark as paid" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', padding: 2 }}><CheckCircle2 size={13} /></button>
                 )}
-                {(inv.status === 'sent' || inv.status === 'overdue') && (
-                  <button title="Send reminder (Phase 1)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><Bell size={12} /></button>
+                {inv.stripeCheckoutUrl && inv.status !== 'paid' && (
+                  <a href={inv.stripeCheckoutUrl} target="_blank" rel="noreferrer" title="Open Stripe payment link"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', padding: 2, display: 'inline-flex' }}>
+                    <ExternalLink size={12} />
+                  </a>
                 )}
-                {inv.status === 'draft' && (
-                  <button onClick={() => sendNow(inv.id)} title="Send now" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fbbf24', padding: 2 }}><Send size={12} /></button>
+                {inv.status !== 'paid' && (
+                  <button
+                    onClick={() => createStripeCheckout(inv)}
+                    disabled={checkoutLoading === inv.id}
+                    title={inv.stripeCheckoutUrl ? 'Regenerate Stripe payment link' : 'Create Stripe payment link'}
+                    style={{ background: 'none', border: 'none', cursor: checkoutLoading === inv.id ? 'wait' : 'pointer', color: '#a98252', padding: 2 }}
+                    onMouseEnter={e => { if (checkoutLoading !== inv.id) e.currentTarget.style.color = '#bca57d' }}
+                    onMouseLeave={e => e.currentTarget.style.color = '#a98252'}>
+                    {checkoutLoading === inv.id ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={12} />}
+                  </button>
                 )}
                 {inv.status !== 'draft' && (
                   <button onClick={() => createInvoicePortalLink(inv)} title="Create portal link" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><Send size={12} /></button>
                 )}
+                <button onClick={() => downloadInvoicePDF(inv)} title="Download PDF" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><FileDown size={12} /></button>
                 <button onClick={() => deleteInvoice(inv.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                   onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={12} /></button>
@@ -249,6 +308,7 @@ export default function Invoices() {
           )
         })}
         {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No invoices found</div>}
+        </div>{/* end scroll wrapper */}
       </motion.div>
 
       {(portalUrl || portalError) && (
@@ -264,14 +324,10 @@ export default function Invoices() {
         </div>
       )}
 
-      <div style={{ marginTop: 16, padding: '12px 16px', background: '#a9825208', border: '1px solid #a9825220', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Repeat size={15} color="#9a7850" />
-        <p style={{ fontSize: '0.78rem', color: '#9a7850', margin: 0 }}>Recurring invoices auto-send via cron · Stripe payment links · Resend email delivery — all in Phase 1</p>
-      </div>
-
       <AnimatePresence>
         {showModal && <NewInvoiceModal onClose={() => setShowModal(false)} />}
       </AnimatePresence>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

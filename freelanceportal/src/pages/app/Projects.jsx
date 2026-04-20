@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Calendar, CheckCircle2, Circle, X, Briefcase, Trash2, Link as LinkIcon, Copy } from 'lucide-react'
+import { Plus, Search, Calendar, CheckCircle2, Circle, X, Briefcase, Trash2, Link as LinkIcon, Copy, LayoutTemplate } from 'lucide-react'
 import { useProjectStore, useClientStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
 
@@ -10,6 +10,53 @@ const statusMeta = {
   completed: { label: 'Completed', color: '#4ade80', bg: 'rgba(34,197,94,0.15)' },
   archived: { label: 'Archived', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
 }
+
+const PROJECT_TEMPLATES = [
+  {
+    name: 'Brand Identity',
+    description: 'Complete brand identity design project',
+    milestones: [
+      { id: 1, title: 'Discovery & Research', done: false },
+      { id: 2, title: 'Logo Concepts (3 directions)', done: false },
+      { id: 3, title: 'Client Presentation', done: false },
+      { id: 4, title: 'Revisions Round 1', done: false },
+      { id: 5, title: 'Final Brand Assets Delivery', done: false },
+    ],
+  },
+  {
+    name: 'Website Design & Dev',
+    description: 'Full website design and development',
+    milestones: [
+      { id: 1, title: 'Wireframes & Sitemap', done: false },
+      { id: 2, title: 'Design Mockups', done: false },
+      { id: 3, title: 'Client Sign-off', done: false },
+      { id: 4, title: 'Development', done: false },
+      { id: 5, title: 'QA & Testing', done: false },
+      { id: 6, title: 'Launch', done: false },
+    ],
+  },
+  {
+    name: 'Social Media Package',
+    description: 'Monthly social media content creation',
+    milestones: [
+      { id: 1, title: 'Content Strategy Brief', done: false },
+      { id: 2, title: 'Template Design', done: false },
+      { id: 3, title: 'Month 1 Content Batch', done: false },
+      { id: 4, title: 'Client Review & Approval', done: false },
+      { id: 5, title: 'Schedule & Publish', done: false },
+    ],
+  },
+  {
+    name: 'Copywriting Project',
+    description: 'Website or campaign copywriting',
+    milestones: [
+      { id: 1, title: 'Tone of Voice Brief', done: false },
+      { id: 2, title: 'First Draft', done: false },
+      { id: 3, title: 'Client Feedback', done: false },
+      { id: 4, title: 'Final Copy', done: false },
+    ],
+  },
+]
 
 function ProjectDetail({ project, onClose }) {
   const { toggleMilestone, updateProject, deleteProject } = useProjectStore()
@@ -171,15 +218,25 @@ function ProjectDetail({ project, onClose }) {
   )
 }
 
-function NewProjectModal({ onClose }) {
+function NewProjectModal({ onClose, preset }) {
   const { addProject } = useProjectStore()
   const { clients } = useClientStore()
-  const [form, setForm] = useState({ name: '', clientId: '', client: '', clientColor: '#a98252', status: 'active', deadline: '', startDate: new Date().toISOString().split('T')[0], description: '' })
+  const [form, setForm] = useState({
+    name: preset?.name || '',
+    clientId: '',
+    client: '',
+    clientColor: '#a98252',
+    status: 'active',
+    deadline: '',
+    startDate: new Date().toISOString().split('T')[0],
+    description: preset?.description || '',
+  })
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const client = clients.find(c => c.id === parseInt(form.clientId))
-    addProject({ ...form, clientId: client?.id || null, client: client?.name || form.client, clientColor: client?.color || '#a98252', progress: 0, milestones: [] })
+    const milestones = preset ? preset.milestones.map(m => ({ ...m, id: Date.now() + Math.random() })) : []
+    addProject({ ...form, clientId: client?.id || null, client: client?.name || form.client, clientColor: client?.color || '#a98252', progress: 0, milestones })
     onClose()
   }
 
@@ -217,12 +274,47 @@ function NewProjectModal({ onClose }) {
   )
 }
 
+function ProjectTemplatesModal({ onClose, onSelect }) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}>
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="card" style={{ width: '100%', maxWidth: 560, padding: 28 }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Project templates</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {PROJECT_TEMPLATES.map((tmpl, i) => (
+            <button key={i} onClick={() => { onSelect(tmpl); onClose() }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', width: '100%' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: '#a9825220', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <LayoutTemplate size={16} color="#a98252" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{tmpl.name}</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{tmpl.description} · {tmpl.milestones.length} milestones</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 export default function Projects() {
   const { projects } = useProjectStore()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [selected, setSelected] = useState(null)
   const [showNew, setShowNew] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [templatePreset, setTemplatePreset] = useState(null)
 
   const filtered = projects.filter(p => {
     const q = search.toLowerCase()
@@ -240,9 +332,14 @@ export default function Projects() {
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: 0, marginBottom: 4 }}>Projects</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{projects.filter(p=>p.status==='active').length} active projects</p>
         </div>
-        <button className="btn-primary" style={{ padding: '9px 18px', fontSize: '0.875rem' }} onClick={() => setShowNew(true)}>
-          <Plus size={15} /> New project
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn-ghost" style={{ padding: '9px 18px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setShowTemplates(true)}>
+            <LayoutTemplate size={15} /> From template
+          </button>
+          <button className="btn-primary" style={{ padding: '9px 18px', fontSize: '0.875rem' }} onClick={() => { setTemplatePreset(null); setShowNew(true) }}>
+            <Plus size={15} /> New project
+          </button>
+        </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
@@ -302,7 +399,8 @@ export default function Projects() {
 
       <AnimatePresence>
         {liveProject && <ProjectDetail project={liveProject} onClose={() => setSelected(null)} />}
-        {showNew && <NewProjectModal onClose={() => setShowNew(false)} />}
+        {showNew && <NewProjectModal onClose={() => setShowNew(false)} preset={templatePreset} />}
+        {showTemplates && <ProjectTemplatesModal onClose={() => setShowTemplates(false)} onSelect={tmpl => { setTemplatePreset(tmpl); setShowNew(true) }} />}
       </AnimatePresence>
     </div>
   )

@@ -4,6 +4,9 @@ import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
 import Onboarding from './pages/auth/Onboarding'
 import Register from './pages/auth/Register'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
+import PublicForm from './pages/PublicForm'
 import AppShell from './components/layout/AppShell'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
@@ -63,6 +66,9 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/form/:ownerId/:formId" element={<PublicForm />} />
 
         {/* Client Portal — public, no auth, magic link (JWT in Phase 1) */}
         <Route path="/portal" element={<PortalLayout />}>
