@@ -4,6 +4,7 @@ import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import AppShell from './components/layout/AppShell'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 
 // App pages
 import Dashboard from './pages/app/Dashboard'
@@ -54,27 +55,29 @@ export default function App() {
           <Route path="messages" element={<PortalMessages />} />
         </Route>
 
-        {/* App (protected — auth mocked for now) */}
-        <Route path="/app" element={<AppShell />}>
-          <Route index element={<Navigate to="/app/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="pipeline" element={<Pipeline />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="proposals" element={<ProposalBuilder />} />
-          <Route path="contracts" element={<Contracts />} />
-          <Route path="invoices" element={<Invoices />} />
-          <Route path="time" element={<TimeTracking />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="services" element={<Services />} />
-          <Route path="forms" element={<Forms />} />
-          <Route path="scheduling" element={<Scheduling />} />
-          <Route path="files" element={<Files />} />
-          <Route path="messages" element={<Messages />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="automations" element={<Automations />} />
-          <Route path="settings" element={<Settings />} />
+        {/* App */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<Navigate to="/app/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="clients" element={<Clients />} />
+            <Route path="pipeline" element={<Pipeline />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="proposals" element={<ProposalBuilder />} />
+            <Route path="contracts" element={<Contracts />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="time" element={<TimeTracking />} />
+            <Route path="expenses" element={<Expenses />} />
+            <Route path="services" element={<Services />} />
+            <Route path="forms" element={<Forms />} />
+            <Route path="scheduling" element={<Scheduling />} />
+            <Route path="files" element={<Files />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="automations" element={<Automations />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
         </Route>
 
         {/* Catch-all */}

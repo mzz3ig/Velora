@@ -3,17 +3,45 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
+import { supabase } from '../../lib/supabase'
 
 export default function Register() {
   const { register, handleSubmit, formState: { errors } } = useForm()
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [notice, setNotice] = useState('')
   const navigate = useNavigate()
 
-  const onSubmit = async () => {
+  const onSubmit = async ({ firstName, lastName, businessName, email, password }) => {
     setLoading(true)
-    await new Promise(r => setTimeout(r, 900))
+    setAuthError('')
+    setNotice('')
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          business_name: businessName || '',
+        },
+      },
+    })
+
     setLoading(false)
+
+    if (error) {
+      setAuthError(error.message)
+      return
+    }
+
+    if (!data.session) {
+      setNotice('Account created. Check your email to confirm your account before signing in.')
+      return
+    }
+
     navigate('/app/dashboard')
   }
 
@@ -70,6 +98,17 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {authError && (
+              <p style={{ fontSize: '0.82rem', color: '#f87171', margin: 0 }}>
+                {authError}
+              </p>
+            )}
+            {notice && (
+              <p style={{ fontSize: '0.82rem', color: '#22c55e', margin: 0 }}>
+                {notice}
+              </p>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>First name</label>

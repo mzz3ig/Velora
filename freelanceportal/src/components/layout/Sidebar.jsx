@@ -10,6 +10,7 @@ import {
   CheckCircle2, AlertCircle, X,
 } from 'lucide-react'
 import { useNotificationStore } from '../../store'
+import { supabase } from '../../lib/supabase'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
@@ -110,6 +111,10 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const { notifications } = useNotificationStore()
   const [showNotifs, setShowNotifs] = useState(false)
   const unreadCount = notifications.filter(n => !n.read).length
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    navigate('/login')
+  }
 
   return (
     <>
@@ -236,7 +241,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
               </div>
             )}
           </div>
-          <button onClick={() => navigate('/login')}
+          <button onClick={signOut}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
               gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer',

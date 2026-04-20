@@ -3,18 +3,31 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
+import { supabase } from '../../lib/supabase'
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [authError, setAuthError] = useState('')
   const navigate = useNavigate()
 
-  const onSubmit = async () => {
+  const onSubmit = async ({ email, password }) => {
     setLoading(true)
-    // Simulate auth
-    await new Promise(r => setTimeout(r, 800))
+    setAuthError('')
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
     setLoading(false)
+
+    if (error) {
+      setAuthError(error.message)
+      return
+    }
+
     navigate('/app/dashboard')
   }
 
@@ -55,6 +68,12 @@ export default function Login() {
           </p>
 
           <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {authError && (
+              <p style={{ fontSize: '0.82rem', color: '#f87171', margin: 0 }}>
+                {authError}
+              </p>
+            )}
+
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
                 Email address
