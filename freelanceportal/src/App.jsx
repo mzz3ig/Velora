@@ -2,9 +2,24 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
+import Onboarding from './pages/auth/Onboarding'
 import Register from './pages/auth/Register'
 import AppShell from './components/layout/AppShell'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+
+// Admin
+import AdminRoute from './pages/admin/AdminRoute'
+import AdminShell from './pages/admin/AdminShell'
+import AdminOverview from './pages/admin/AdminOverview'
+import AdminAnalytics from './pages/admin/AdminAnalytics'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminData from './pages/admin/AdminData'
+import AdminStores from './pages/admin/AdminStores'
+import AdminHealth from './pages/admin/AdminHealth'
+import AdminFlags from './pages/admin/AdminFlags'
+import AdminActions from './pages/admin/AdminActions'
+import AdminDanger from './pages/admin/AdminDanger'
+import AdminConfig from './pages/admin/AdminConfig'
 
 // App pages
 import Dashboard from './pages/app/Dashboard'
@@ -57,6 +72,7 @@ export default function App() {
 
         {/* App */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -77,6 +93,23 @@ export default function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="automations" element={<Automations />} />
             <Route path="settings" element={<Settings />} />
+          </Route>
+        </Route>
+
+        {/* Admin — god mode, hardcoded to rcmendes098@hotmail.com */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminShell />}>
+            <Route index element={<Navigate to="/admin/overview" replace />} />
+            <Route path="overview" element={<AdminOverview />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="data" element={<AdminData />} />
+            <Route path="stores" element={<AdminStores />} />
+            <Route path="health" element={<AdminHealth />} />
+            <Route path="flags" element={<AdminFlags />} />
+            <Route path="actions" element={<AdminActions />} />
+            <Route path="danger" element={<AdminDanger />} />
+            <Route path="config" element={<AdminConfig />} />
           </Route>
         </Route>
 

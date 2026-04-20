@@ -1,10 +1,9 @@
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Home, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { rehydrateAppStores, saveAppStores } from '../../store'
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -29,123 +28,91 @@ export default function Login() {
       return
     }
 
-    await rehydrateAppStores()
-    await saveAppStores()
     navigate('/app/dashboard')
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24, position: 'relative', overflow: 'hidden',
-      background: 'transparent',
-    }}>
-      <motion.div
+    <div className="auth-page auth-page-login">
+      <motion.main
+        className="auth-panel-wrap"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        style={{ width: '100%', maxWidth: 420, position: 'relative' }}
+        transition={{ duration: 0.5, delay: 0.05 }}
       >
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-            <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain' }} />
-            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Velora</span>
+        <div className="auth-topbar">
+          <Link to="/" className="auth-brand" aria-label="Velora home">
+            <img src="/velora-logo.png" alt="" className="auth-brand-logo" />
+            <span>Velora</span>
           </Link>
+          <div className="auth-topbar-actions">
+            <Link to="/" className="auth-home-link"><Home size={15} /> Home</Link>
+            <Link to="/register" className="auth-topbar-link">Start free</Link>
+          </div>
         </div>
 
-        <div className="glass" style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-light)',
-          borderRadius: 8,
-          padding: 36,
-          boxShadow: 'var(--shadow-md)',
-          backdropFilter: 'var(--blur)',
-          WebkitBackdropFilter: 'var(--blur)',
-        }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 6, letterSpacing: 0 }}>
-            Welcome back
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 28 }}>
-            Sign in to your Velora account
-          </p>
+        <section className="auth-panel" aria-labelledby="login-title">
+          <div className="auth-panel-heading">
+            <span className="auth-icon"><ShieldCheck size={18} /></span>
+            <h2 id="login-title">Welcome back</h2>
+            <p>Sign in to manage your clients, payments, and deliverables.</p>
+          </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {authError && (
-              <p style={{ fontSize: '0.82rem', color: '#f87171', margin: 0 }}>
-                {authError}
-              </p>
-            )}
+          <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+            {authError && <p className="auth-alert auth-alert-error">{authError}</p>}
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                Email address
-              </label>
-              <input
-                {...register('email', { required: true, pattern: /^\S+@\S+$/i })}
-                type="email"
-                placeholder="you@example.com"
-                className="input"
-              />
-              {errors.email && <p style={{ fontSize: '0.78rem', color: '#f87171', marginTop: 4 }}>Valid email required</p>}
+            <div className="auth-field">
+              <label htmlFor="email">Email address</label>
+              <div className="auth-input-shell">
+                <Mail size={17} />
+                <input
+                  id="email"
+                  {...register('email', { required: true, pattern: /^\S+@\S+$/i })}
+                  type="email"
+                  placeholder="you@example.com"
+                  className="input auth-input"
+                  autoComplete="email"
+                />
+              </div>
+              {errors.email && <p className="auth-error">Enter a valid email address.</p>}
             </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Password
-                </label>
-                <a href="#" style={{ fontSize: '0.8rem', color: 'var(--accent)', textDecoration: 'none' }}>
-                  Forgot password?
-                </a>
+            <div className="auth-field">
+              <div className="auth-label-row">
+                <label htmlFor="password">Password</label>
+                <a href="#">Forgot password?</a>
               </div>
-              <div style={{ position: 'relative' }}>
+              <div className="auth-input-shell">
+                <LockKeyhole size={17} />
                 <input
+                  id="password"
                   {...register('password', { required: true, minLength: 6 })}
                   type={showPass ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  className="input"
-                  style={{ paddingRight: 44 }}
+                  placeholder="Enter your password"
+                  className="input auth-input"
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
+                  className="auth-password-toggle"
                   onClick={() => setShowPass(!showPass)}
-                  style={{
-                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
-                  }}
+                  aria-label={showPass ? 'Hide password' : 'Show password'}
                 >
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
-              {errors.password && <p style={{ fontSize: '0.78rem', color: '#f87171', marginTop: 4 }}>Min 6 characters</p>}
+              {errors.password && <p className="auth-error">Use at least 6 characters.</p>}
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{ justifyContent: 'center', padding: '13px', fontSize: '0.95rem', marginTop: 4, opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? 'Signing in…' : <>Sign in <ArrowRight size={15} /></>}
+            <button type="submit" disabled={loading} className="btn-primary auth-submit">
+              {loading ? 'Signing in...' : <>Sign in <ArrowRight size={16} /></>}
             </button>
           </form>
 
-          <div style={{ position: 'relative', margin: '24px 0', textAlign: 'center' }}>
-            <div style={{ height: 1, background: 'var(--border)', position: 'absolute', top: '50%', left: 0, right: 0 }} />
-            <span style={{ background: 'var(--surface)', padding: '0 12px', fontSize: '0.8rem', color: 'var(--text-muted)', position: 'relative' }}>
-              or
-            </span>
-          </div>
-
-          <p style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            Don't have an account?{' '}
-            <Link to="/register" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
-              Sign up free
-            </Link>
+          <p className="auth-switch">
+            New to Velora? <Link to="/register">Create an account</Link>
           </p>
-        </div>
-      </motion.div>
+        </section>
+      </motion.main>
     </div>
   )
 }
