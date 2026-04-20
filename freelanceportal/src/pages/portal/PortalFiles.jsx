@@ -14,7 +14,7 @@ const typeColor = { pdf: '#ef4444', image: '#06b6d4', zip: '#f59e0b' }
 
 export default function PortalFiles() {
   const { freelancer } = useOutletContext()
-  const [files, setFiles] = useState(FILES)
+  const [files] = useState(FILES)
 
   return (
     <div style={{ maxWidth: 640 }}>

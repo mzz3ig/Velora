@@ -275,10 +275,8 @@ function NewContractModal({ onClose, onAdd }) {
 function SignContractModal({ contract, onSign, onClose }) {
   const [showSig, setShowSig] = useState(false)
   const [signed, setSigned] = useState(false)
-  const [sigData, setSigData] = useState(null)
 
-  function handleSave(data) {
-    setSigData(data)
+  function handleSave() {
     setShowSig(false)
     setSigned(true)
     onSign(contract.id)
@@ -400,8 +398,8 @@ export default function Contracts() {
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#6366f115', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ScrollText size={14} color="#6366f1" />
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#a9825215', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ScrollText size={14} color="#a98252" />
                 </div>
                 <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.project}</span>
               </div>

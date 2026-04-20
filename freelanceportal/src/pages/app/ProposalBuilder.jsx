@@ -108,7 +108,7 @@ export default function ProposalBuilder() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 <span style={{ fontWeight: 800, fontSize: '1rem' }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0071e3' }}>€{total.toLocaleString()}</span>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#a98252' }}>€{total.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function ProposalBuilder() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                 <span style={{ fontWeight: 800 }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0071e3' }}>€{total.toLocaleString()}</span>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#a98252' }}>€{total.toLocaleString()}</span>
               </div>
             </div>
           </div>

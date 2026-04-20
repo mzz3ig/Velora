@@ -2,87 +2,51 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDays, Plus, X, Clock, Link, Check, Edit2, Trash2,
-  Globe, DollarSign, Video, Copy, ToggleLeft, Users, Calendar,
+  Globe, DollarSign, Video,
 } from 'lucide-react'
+import { useSchedulingStore } from '../../store'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120]
-
-const INITIAL_EVENT_TYPES = [
-  {
-    id: 1, name: 'Discovery Call', duration: 30, color: '#6366f1',
-    description: 'Initial 30-min call to understand your needs and see if we are a good fit.',
-    price: 0, active: true, location: 'Google Meet',
-  },
-  {
-    id: 2, name: 'Strategy Session', duration: 60, color: '#f59e0b',
-    description: 'Deep-dive session to plan your project roadmap.',
-    price: 150, active: true, location: 'Zoom',
-  },
-  {
-    id: 3, name: 'Design Review', duration: 45, color: '#22c55e',
-    description: 'Review designs and collect feedback.',
-    price: 0, active: false, location: 'Google Meet',
-  },
-]
-
-const BOOKINGS = [
-  { id: 1, event_type: 'Discovery Call', client: 'Lucas Müller', email: 'lucas@example.com', date: '2026-04-22', time: '14:00', status: 'confirmed', notes: 'Wants website and branding' },
-  { id: 2, event_type: 'Strategy Session', client: 'Sara Johnson', email: 'sara@example.com', date: '2026-04-24', time: '10:00', status: 'confirmed', notes: '' },
-  { id: 3, event_type: 'Discovery Call', client: 'Marcus Webb', email: 'marcus@example.com', date: '2026-04-19', time: '16:30', status: 'pending', notes: '' },
-]
-
-const AVAILABILITY = [
-  { day: 'Monday', enabled: true, start: '09:00', end: '17:00' },
-  { day: 'Tuesday', enabled: true, start: '09:00', end: '17:00' },
-  { day: 'Wednesday', enabled: true, start: '09:00', end: '17:00' },
-  { day: 'Thursday', enabled: true, start: '09:00', end: '17:00' },
-  { day: 'Friday', enabled: true, start: '09:00', end: '15:00' },
-  { day: 'Saturday', enabled: false, start: '10:00', end: '14:00' },
-  { day: 'Sunday', enabled: false, start: '10:00', end: '14:00' },
-]
-
-const EMPTY_EVENT = {
-  name: '', duration: 30, color: '#6366f1', description: '',
-  price: 0, active: true, location: 'Google Meet',
-}
+const EMPTY_EVENT = { name: '', duration: 30, color: '#a98252', description: '', price: 0, active: true, location: 'Google Meet' }
 
 export default function Scheduling() {
-  const [eventTypes, setEventTypes] = useState(INITIAL_EVENT_TYPES)
-  const [bookings, setBookings] = useState(BOOKINGS)
-  const [availability, setAvailability] = useState(AVAILABILITY)
-  const [tab, setTab] = useState('bookings') // bookings | event_types | availability
+  const { eventTypes, bookings, availability, addEventType, updateEventType, deleteEventType, toggleEventType, updateAvailability } = useSchedulingStore()
+  const [tab, setTab] = useState('bookings')
   const [showModal, setShowModal] = useState(false)
   const [editEvent, setEditEvent] = useState(null)
   const [form, setForm] = useState(EMPTY_EVENT)
   const [copied, setCopied] = useState(null)
+  const [localAvail, setLocalAvail] = useState([...availability])
+  const [availSaved, setAvailSaved] = useState(false)
 
   function openNew() { setForm(EMPTY_EVENT); setEditEvent(null); setShowModal(true) }
-  function openEdit(ev) { setForm({ ...ev }); setEditEvent(ev.id); setShowModal(true) }
+  function openEdit(ev) { setForm({ name: ev.name, duration: ev.duration, color: ev.color || '#a98252', description: ev.description, price: ev.price, active: ev.active, location: ev.location }); setEditEvent(ev.id); setShowModal(true) }
 
   function saveEvent(e) {
     e.preventDefault()
     if (editEvent) {
-      setEventTypes(et => et.map(x => x.id === editEvent ? { ...x, ...form } : x))
+      updateEventType(editEvent, { ...form })
     } else {
-      setEventTypes(et => [...et, { id: Date.now(), ...form }])
+      addEventType({ ...form })
     }
     setShowModal(false)
   }
 
-  function deleteEvent(id) { setEventTypes(et => et.filter(x => x.id !== id)) }
-  function toggleEvent(id) { setEventTypes(et => et.map(x => x.id === id ? { ...x, active: !x.active } : x)) }
+  function copyLink(id) { setCopied(id); setTimeout(() => setCopied(null), 2000) }
 
-  function copyLink(id) {
-    setCopied(id)
-    setTimeout(() => setCopied(null), 2000)
+  function updateLocalAvail(index, updates) {
+    setLocalAvail(a => a.map((x, i) => i === index ? { ...x, ...updates } : x))
   }
 
-  function updateAvailability(index, updates) {
-    setAvailability(a => a.map((x, i) => i === index ? { ...x, ...updates } : x))
+  function saveAvailability() {
+    updateAvailability(localAvail)
+    setAvailSaved(true)
+    setTimeout(() => setAvailSaved(false), 2000)
   }
 
-  const upcoming = bookings.filter(b => new Date(b.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date))
-  const past = bookings.filter(b => new Date(b.date) < new Date())
+  const now = new Date()
+  const upcoming = bookings.filter(b => new Date(b.date) >= now).sort((a, b) => new Date(a.date) - new Date(b.date))
+  const past = bookings.filter(b => new Date(b.date) < now)
 
   return (
     <div style={{ padding: '32px', maxWidth: 960, margin: '0 auto' }}>
@@ -98,7 +62,6 @@ export default function Scheduling() {
         )}
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
         {[['bookings', 'Bookings'], ['event_types', 'Event types'], ['availability', 'Availability']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
@@ -111,7 +74,6 @@ export default function Scheduling() {
         ))}
       </div>
 
-      {/* Bookings tab */}
       {tab === 'bookings' && (
         <div>
           {upcoming.length > 0 && (
@@ -131,8 +93,8 @@ export default function Scheduling() {
                     </div>
                     <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{b.event_type}</div>
-                      <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{b.client} · {b.email}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{b.eventType}</div>
+                      <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{b.client}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
                       <Clock size={14} /> {b.time}
@@ -152,7 +114,7 @@ export default function Scheduling() {
               <CalendarDays size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
               <p>No upcoming bookings. Share your booking link to get started.</p>
               <div style={{ marginTop: 16, padding: '10px 16px', background: 'var(--bg-secondary)', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.825rem', display: 'inline-block', color: 'var(--text-muted)' }}>
-                portal.freelanceportal.com/book/rodrigo
+                portal.velora.com/book/rodrigo
               </div>
             </div>
           )}
@@ -163,7 +125,7 @@ export default function Scheduling() {
                 {past.map(b => (
                   <div key={b.id} className="card" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, opacity: 0.6 }}>
                     <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)', minWidth: 80 }}>{b.date}</div>
-                    <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{b.event_type} — {b.client}</div>
+                    <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{b.eventType} — {b.client}</div>
                     <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{b.time}</div>
                   </div>
                 ))}
@@ -173,7 +135,6 @@ export default function Scheduling() {
         </div>
       )}
 
-      {/* Event types tab */}
       {tab === 'event_types' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {eventTypes.map(ev => (
@@ -181,17 +142,16 @@ export default function Scheduling() {
               className="card" style={{ padding: 20, opacity: ev.active ? 1 : 0.6 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 12, height: 40, borderRadius: 3, background: ev.color, flexShrink: 0 }} />
+                  <div style={{ width: 12, height: 40, borderRadius: 3, background: ev.color || '#a98252', flexShrink: 0 }} />
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.925rem', color: 'var(--text-primary)' }}>{ev.name}</div>
                     <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                       <Clock size={11} /> {ev.duration} min
-                      {ev.price > 0 && <> · <DollarSign size={11} /> €{ev.price}</>}
+                      {ev.price > 0 && <> · €{ev.price}</>}
                     </div>
                   </div>
                 </div>
-                <div
-                  onClick={() => toggleEvent(ev.id)}
+                <div onClick={() => toggleEventType(ev.id)}
                   style={{ width: 36, height: 20, borderRadius: 10, cursor: 'pointer', background: ev.active ? 'var(--accent)' : 'var(--border-light)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: ev.active ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
                 </div>
@@ -213,7 +173,7 @@ export default function Scheduling() {
                 <button onClick={() => openEdit(ev)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                   <Edit2 size={13} />
                 </button>
-                <button onClick={() => deleteEvent(ev.id)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                <button onClick={() => deleteEventType(ev.id)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-secondary)' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}>
                   <Trash2 size={13} />
@@ -229,7 +189,6 @@ export default function Scheduling() {
         </div>
       )}
 
-      {/* Availability tab */}
       {tab === 'availability' && (
         <div>
           <div className="card" style={{ padding: '24px', maxWidth: 560 }}>
@@ -238,19 +197,19 @@ export default function Scheduling() {
               <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>Timezone: Europe/Lisbon (UTC+1)</span>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 20 }}>Calendar sync (Google, Apple, Outlook) — available in Phase 1</p>
-            {availability.map((day, i) => (
+            {localAvail.map((day, i) => (
               <div key={day.day} style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-                <div onClick={() => updateAvailability(i, { enabled: !day.enabled })}
+                <div onClick={() => updateLocalAvail(i, { enabled: !day.enabled })}
                   style={{ width: 36, height: 20, borderRadius: 10, cursor: 'pointer', background: day.enabled ? 'var(--accent)' : 'var(--border-light)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: day.enabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
                 </div>
                 <span style={{ fontSize: '0.875rem', fontWeight: 600, color: day.enabled ? 'var(--text-primary)' : 'var(--text-muted)', width: 90 }}>{day.day}</span>
                 {day.enabled ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="time" value={day.start} onChange={e => updateAvailability(i, { start: e.target.value })}
+                    <input type="time" value={day.start} onChange={e => updateLocalAvail(i, { start: e.target.value })}
                       className="input" style={{ width: 100, padding: '6px 10px' }} />
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>to</span>
-                    <input type="time" value={day.end} onChange={e => updateAvailability(i, { end: e.target.value })}
+                    <input type="time" value={day.end} onChange={e => updateLocalAvail(i, { end: e.target.value })}
                       className="input" style={{ width: 100, padding: '6px 10px' }} />
                   </div>
                 ) : (
@@ -258,12 +217,13 @@ export default function Scheduling() {
                 )}
               </div>
             ))}
-            <button className="btn-primary" style={{ marginTop: 8 }}>Save availability</button>
+            <button onClick={saveAvailability} className="btn-primary" style={{ marginTop: 8 }}>
+              {availSaved ? <><Check size={14} /> Saved!</> : 'Save availability'}
+            </button>
           </div>
         </div>
       )}
 
-      {/* Event type modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -309,7 +269,7 @@ export default function Scheduling() {
                 <div>
                   <label className="label">Color</label>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#ef4444', '#8b5cf6', '#f97316'].map(color => (
+                    {['#a98252', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#ef4444', '#8f6d43', '#f97316'].map(color => (
                       <div key={color} onClick={() => setForm(f => ({ ...f, color }))}
                         style={{ width: 28, height: 28, borderRadius: '50%', background: color, cursor: 'pointer', border: form.color === color ? '3px solid white' : '3px solid transparent', boxShadow: form.color === color ? `0 0 0 2px ${color}` : 'none' }} />
                     ))}

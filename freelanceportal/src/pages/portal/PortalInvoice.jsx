@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { CreditCard, CheckCircle2, Lock, Shield, ExternalLink } from 'lucide-react'
 
 export default function PortalInvoice() {
-  const { freelancer, client, project } = useOutletContext()
+  const { freelancer } = useOutletContext()
   const [paying, setPaying] = useState(false)
   const [paid, setPaid] = useState(false)
 

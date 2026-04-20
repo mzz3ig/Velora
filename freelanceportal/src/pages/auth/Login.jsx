@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Zap, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Login() {
@@ -33,14 +33,8 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 8,
-              background: 'var(--text-primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Zap size={18} color="white" fill="white" />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>FreelancePortal</span>
+            <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain' }} />
+            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Velora</span>
           </Link>
         </div>
 
@@ -57,7 +51,7 @@ export default function Login() {
             Welcome back
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 28 }}>
-            Sign in to your FreelancePortal account
+            Sign in to your Velora account
           </p>
 
           <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

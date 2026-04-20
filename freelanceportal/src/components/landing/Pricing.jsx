@@ -21,13 +21,13 @@ const plans = [
     name: 'Starter',
     price: { monthly: 15, annual: 126 },
     desc: 'Perfect for freelancers just getting started.',
-    color: '#0071e3',
+    color: '#a98252',
     features: [
       'Up to 3 active client portals',
       'Proposals & contracts',
       'Stripe payment collection',
       '5GB file storage',
-      'yourname.freelanceportal.com subdomain',
+      'yourname.velora.com subdomain',
       'Email support',
     ],
     cta: 'Start free trial',
@@ -37,7 +37,7 @@ const plans = [
     name: 'Pro',
     price: { monthly: 29, annual: 242 },
     desc: 'For freelancers who are serious about their business.',
-    color: '#2997ff',
+    color: '#8f6d43',
     features: [
       'Unlimited active client portals',
       'Full white-label (custom domain)',
@@ -62,10 +62,10 @@ export default function Pricing() {
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center',
-              background: 'rgba(0,113,227,0.1)', border: '1px solid rgba(0,113,227,0.2)',
+              background: 'rgba(169,130,82,0.12)', border: '1px solid rgba(169,130,82,0.24)',
               borderRadius: 999, padding: '4px 14px', marginBottom: 16,
             }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0071e3', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#a98252', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Simple pricing
               </span>
             </div>
@@ -128,7 +128,7 @@ export default function Pricing() {
                     ? 'var(--surface)'
                     : 'var(--surface)',
                   border: plan.popular
-                    ? '1px solid rgba(0,113,227,0.35)'
+                    ? '1px solid rgba(169,130,82,0.38)'
                     : '1px solid var(--border)',
                   borderRadius: 8,
                   padding: '32px',

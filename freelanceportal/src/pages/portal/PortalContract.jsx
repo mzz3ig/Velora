@@ -31,7 +31,6 @@ Both parties agree to keep project information confidential.`
 export default function PortalContract() {
   const { freelancer, client, project } = useOutletContext()
   const [signed, setSigned] = useState(false)
-  const [showSigPad, setShowSigPad] = useState(false)
   const [typedName, setTypedName] = useState('')
   const [signedAt, setSignedAt] = useState(null)
 
@@ -39,7 +38,6 @@ export default function PortalContract() {
     if (!typedName.trim()) return
     setSigned(true)
     setSignedAt(new Date())
-    setShowSigPad(false)
   }
 
   return (

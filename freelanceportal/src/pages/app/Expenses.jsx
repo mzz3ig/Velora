@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Receipt, Plus, Trash2, X, Upload, Tag, DollarSign,
-  TrendingDown, Calendar, Briefcase, Filter, Download,
+  TrendingDown, Calendar, Briefcase, Filter, Download, Edit2,
 } from 'lucide-react'
+import { useExpenseStore, useProjectStore } from '../../store'
 
 const CATEGORIES = [
   'Software & Subscriptions', 'Hardware & Equipment', 'Travel & Transport',
@@ -11,48 +12,48 @@ const CATEGORIES = [
   'Meals & Entertainment', 'Education & Training', 'Utilities', 'Other',
 ]
 
-const PROJECTS = [
-  { id: 0, name: '— No project —' },
-  { id: 1, name: 'Webflow Redesign' },
-  { id: 2, name: 'Brand Identity' },
-  { id: 3, name: 'Mobile App UI' },
-  { id: 4, name: 'E-commerce Site' },
-]
-
-const INITIAL = [
-  { id: 1, merchant: 'Adobe Creative Cloud', date: '2026-04-15', amount: 59.99, category: 'Software & Subscriptions', project: '— No project —', reimbursable: false, billable: false, notes: 'Monthly subscription', receipt: null },
-  { id: 2, merchant: 'Figma Pro', date: '2026-04-14', amount: 15.00, category: 'Software & Subscriptions', project: 'Webflow Redesign', reimbursable: false, billable: true, notes: '', receipt: null },
-  { id: 3, merchant: 'Uber', date: '2026-04-13', amount: 22.50, category: 'Travel & Transport', project: 'Brand Identity', reimbursable: true, billable: true, notes: 'Client meeting travel', receipt: null },
-  { id: 4, merchant: 'Amazon', date: '2026-04-10', amount: 134.90, category: 'Hardware & Equipment', project: '— No project —', reimbursable: false, billable: false, notes: 'HDMI cables and keyboard', receipt: null },
-  { id: 5, merchant: 'Zoom', date: '2026-04-01', amount: 15.99, category: 'Software & Subscriptions', project: '— No project —', reimbursable: false, billable: false, notes: '', receipt: null },
-]
-
 const EMPTY_FORM = {
   merchant: '', date: new Date().toISOString().split('T')[0],
-  amount: '', category: CATEGORIES[0], project: '— No project —',
+  amount: '', category: CATEGORIES[0], projectId: '',
   reimbursable: false, billable: false, notes: '',
 }
 
+function exportCSV(expenses) {
+  const header = 'Date,Description,Category,Amount,Project,Reimbursable,Billable,Notes\n'
+  const rows = expenses.map(e => `${e.date},"${e.merchant}","${e.category}",${e.amount},"${e.project || ''}",${e.reimbursable ? 'Yes' : 'No'},${e.billable ? 'Yes' : 'No'},"${e.notes || ''}"`).join('\n')
+  const blob = new Blob([header + rows], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = 'expenses.csv'; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Expenses() {
-  const [expenses, setExpenses] = useState(INITIAL)
+  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenseStore()
+  const { projects } = useProjectStore()
   const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filterCat, setFilterCat] = useState('All')
   const [search, setSearch] = useState('')
 
-  function addExpense(e) {
+  function openNew() { setForm(EMPTY_FORM); setEditId(null); setShowModal(true) }
+  function openEdit(exp) {
+    setForm({ merchant: exp.merchant, date: exp.date, amount: exp.amount, category: exp.category, projectId: exp.projectId || '', reimbursable: exp.reimbursable, billable: exp.billable, notes: exp.notes || '' })
+    setEditId(exp.id); setShowModal(true)
+  }
+
+  function handleSave(e) {
     e.preventDefault()
     if (!form.merchant || !form.amount) return
-    setExpenses(prev => [{ id: Date.now(), ...form, amount: parseFloat(form.amount), receipt: null }, ...prev])
-    setForm(EMPTY_FORM)
+    const proj = projects.find(p => p.id === parseInt(form.projectId))
+    const data = { ...form, amount: parseFloat(form.amount), project: proj?.name || null, projectId: proj?.id || null, receipt: null }
+    if (editId) { updateExpense(editId, data) } else { addExpense(data) }
     setShowModal(false)
   }
 
-  function deleteExpense(id) { setExpenses(e => e.filter(x => x.id !== id)) }
-
   const filtered = expenses.filter(e => {
     if (filterCat !== 'All' && e.category !== filterCat) return false
-    if (search && !e.merchant.toLowerCase().includes(search.toLowerCase()) && !e.notes.toLowerCase().includes(search.toLowerCase())) return false
+    if (search && !e.merchant.toLowerCase().includes(search.toLowerCase()) && !(e.notes||'').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
@@ -74,11 +75,11 @@ export default function Expenses() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Track business costs and billable expenses</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => exportCSV(expenses)}>
             <Download size={15} /> Export CSV
           </button>
           <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-            onClick={() => setShowModal(true)}>
+            onClick={openNew}>
             <Plus size={16} /> Add expense
           </button>
         </div>
@@ -153,13 +154,14 @@ export default function Expenses() {
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <button onClick={() => deleteExpense(exp.id)} style={{
-                        background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
-                        padding: 4, borderRadius: 6,
-                      }} onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => openEdit(exp)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Edit2 size={14} /></button>
+                        <button onClick={() => deleteExpense(exp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={14} /></button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -205,10 +207,10 @@ export default function Expenses() {
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="card" style={{ width: '100%', maxWidth: 500, padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Add expense</h2>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{editId ? 'Edit expense' : 'Add expense'}</h2>
                 <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
               </div>
-              <form onSubmit={addExpense} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
                   <label className="label">Merchant / Description</label>
                   <input className="input" placeholder="e.g. Adobe Creative Cloud" value={form.merchant}
@@ -234,8 +236,9 @@ export default function Expenses() {
                 </div>
                 <div>
                   <label className="label">Project (optional)</label>
-                  <select className="input" value={form.project} onChange={e => setForm(f => ({ ...f, project: e.target.value }))}>
-                    {PROJECTS.map(p => <option key={p.id}>{p.name}</option>)}
+                  <select className="input" value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))}>
+                    <option value="">— No project —</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -270,7 +273,7 @@ export default function Expenses() {
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                   <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary" style={{ flex: 1 }}>Add expense</button>
+                  <button type="submit" className="btn-primary" style={{ flex: 1 }}>{editId ? 'Save changes' : 'Add expense'}</button>
                 </div>
               </form>
             </motion.div>

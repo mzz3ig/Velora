@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Zap } from 'lucide-react'
 
 export default function Footer() {
   return (
@@ -14,14 +13,8 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 7,
-                background: 'var(--text-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Zap size={13} color="white" fill="white" />
-              </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>FreelancePortal</span>
+              <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Velora</span>
             </div>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: 260 }}>
               The all-in-one client portal for solo freelancers. Send one link. Get paid faster.
@@ -77,7 +70,7 @@ export default function Footer() {
           borderTop: '1px solid var(--border)', paddingTop: 24,
         }}>
           <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-            © 2026 FreelancePortal. Built for freelancers, by a freelancer.
+            © 2026 Velora. Built for freelancers, by a freelancer.
           </p>
           <div style={{ display: 'flex', gap: 20 }}>
             {['Twitter', 'LinkedIn', 'Indie Hackers'].map(s => (

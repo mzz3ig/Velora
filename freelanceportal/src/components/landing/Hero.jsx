@@ -62,14 +62,14 @@ function FloatingDashboard() {
           Recent
         </div>
         {[
-          { icon: FileText, color: '#34c759', text: 'Contract signed - Acme Co.', time: '2m' },
-          { icon: CreditCard, color: '#0071e3', text: 'Payment received - €850', time: '1h' },
-          { icon: MessageSquare, color: '#5856d6', text: 'Message from Sara Johnson', time: '3h' },
+          { icon: FileText, color: '#bca57d', text: 'Contract signed - Acme Co.', time: '2m' },
+          { icon: CreditCard, color: '#a98252', text: 'Payment received - €850', time: '1h' },
+          { icon: MessageSquare, color: '#8f6d43', text: 'Message from Sara Johnson', time: '3h' },
         ].map((item, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '8px 0',
-            borderBottom: i < 2 ? '1px solid #f5f5f7' : 'none',
+            borderBottom: i < 2 ? '1px solid #f4eadb' : 'none',
           }}>
             <div style={{
               width: 28, height: 28, borderRadius: 8, background: `${item.color}15`,
@@ -99,7 +99,7 @@ function FloatingDashboard() {
           display: 'flex', alignItems: 'center', gap: 6,
         }}
       >
-        <CheckCircle2 size={13} color="#34c759" />
+        <CheckCircle2 size={13} color="#bca57d" />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', letterSpacing: 0 }}>Contract signed</span>
       </motion.div>
 
@@ -119,7 +119,7 @@ function FloatingDashboard() {
           display: 'flex', alignItems: 'center', gap: 6,
         }}
       >
-        <TrendingUp size={13} color="#0071e3" />
+        <TrendingUp size={13} color="#a98252" />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', letterSpacing: 0 }}>+€2,400 this week</span>
       </motion.div>
     </motion.div>
@@ -138,7 +138,7 @@ export default function Hero() {
       {/* Subtle gradient bg - very Apple */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(135deg, rgba(0,113,227,0.05), rgba(255,255,255,0) 58%)',
+        background: 'linear-gradient(135deg, rgba(169,130,82,0.08), rgba(255,255,255,0) 58%)',
       }} />
 
       <div style={{ maxWidth: 1120, margin: '0 auto', width: '100%', position: 'relative' }}>
@@ -164,7 +164,7 @@ export default function Hero() {
                 fontSize: '0.78rem', fontWeight: 500, color: '#424245',
                 letterSpacing: 0,
               }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34c759', display: 'inline-block' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#bca57d', display: 'inline-block' }} />
                 Now in public beta · 120+ freelancers
               </span>
             </motion.div>
@@ -185,7 +185,7 @@ export default function Hero() {
             >
               One link.<br />
               Your brand.<br />
-              <span style={{ color: '#0071e3' }}>Fully yours.</span>
+              <span style={{ color: '#a98252' }}>Fully yours.</span>
             </motion.h1>
 
             <motion.p
@@ -228,7 +228,7 @@ export default function Hero() {
             >
               {['14-day free trial', 'No credit card', 'Cancel anytime'].map(t => (
                 <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <CheckCircle2 size={13} color="#34c759" />
+                  <CheckCircle2 size={13} color="#bca57d" />
                   <span style={{ fontSize: '0.82rem', color: '#86868b', letterSpacing: 0 }}>{t}</span>
                 </div>
               ))}

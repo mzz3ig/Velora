@@ -40,11 +40,11 @@ export default function PortalOverview() {
               )}
               <div style={{
                 width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                background: step.status === 'done' ? '#22c55e20' : step.status === 'active' ? '#6366f120' : 'var(--bg-secondary)',
-                border: `2px solid ${step.status === 'done' ? '#22c55e' : step.status === 'active' ? '#6366f1' : 'var(--border)'}`,
+                background: step.status === 'done' ? '#22c55e20' : step.status === 'active' ? '#a9825220' : 'var(--bg-secondary)',
+                border: `2px solid ${step.status === 'done' ? '#22c55e' : step.status === 'active' ? '#a98252' : 'var(--border)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <step.icon size={14} color={step.status === 'done' ? '#22c55e' : step.status === 'active' ? '#6366f1' : 'var(--text-muted)'} />
+                <step.icon size={14} color={step.status === 'done' ? '#22c55e' : step.status === 'active' ? '#a98252' : 'var(--text-muted)'} />
               </div>
               <div style={{ paddingTop: 4 }}>
                 <div style={{ fontWeight: 700, fontSize: '0.875rem', color: step.status === 'pending' ? 'var(--text-muted)' : 'var(--text-primary)' }}>{step.label}</div>
@@ -58,7 +58,7 @@ export default function PortalOverview() {
       {/* Quick actions */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {[
-          { label: 'Download contract', icon: FileText, action: 'Contract PDF (Phase 1)', color: '#6366f1' },
+          { label: 'Download contract', icon: FileText, action: 'Contract PDF (Phase 1)', color: '#a98252' },
           { label: 'Pay invoice', icon: CreditCard, action: 'Stripe payment — Phase 1', color: '#22c55e' },
           { label: 'Send message', icon: MessageSquare, action: 'Message freelancer', color: '#f59e0b' },
         ].map(item => (

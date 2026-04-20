@@ -21,7 +21,7 @@ export default function Navbar() {
       transition={{ duration: 0.4 }}
       style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        height: 52,
+        height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 22px',
         background: scrolled ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.72)',
@@ -34,17 +34,9 @@ export default function Navbar() {
     >
       {/* Logo */}
       <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: 7,
-          background: 'var(--text-primary)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M6.5 1L11.5 4V9L6.5 12L1.5 9V4L6.5 1Z" fill="white" />
-          </svg>
-        </div>
+        <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, objectFit: 'contain' }} />
         <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', letterSpacing: 0 }}>
-          FreelancePortal
+          Velora
         </span>
       </Link>
 
@@ -91,7 +83,7 @@ export default function Navbar() {
         {menuOpen && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             style={{
-              position: 'absolute', top: 52, left: 0, right: 0,
+              position: 'absolute', top: 64, left: 0, right: 0,
               background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)',
               borderBottom: '1px solid var(--border-light)',
               padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 4,

@@ -1,12 +1,15 @@
+import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Zap, LayoutDashboard, Users, Briefcase, FileText,
+  LayoutDashboard, Users, Briefcase, FileText,
   ScrollText, CreditCard, FolderOpen, MessageSquare,
   Settings, LogOut, ChevronRight, Clock, Receipt,
   Package, TrendingUp, ClipboardList, CalendarDays,
-  BarChart2, Zap as ZapIcon, CheckSquare,
+  BarChart2, Zap as ZapIcon, CheckSquare, Bell,
+  CheckCircle2, AlertCircle, X,
 } from 'lucide-react'
+import { useNotificationStore } from '../../store'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
@@ -36,145 +39,221 @@ const navItems = [
   { icon: Settings, label: 'Settings', path: '/app/settings' },
 ]
 
-export default function Sidebar({ collapsed, setCollapsed }) {
-  const navigate = useNavigate()
+const notifIcons = {
+  contract: { icon: CheckCircle2, color: '#22c55e' },
+  payment: { icon: CreditCard, color: '#a98252' },
+  proposal: { icon: FileText, color: '#f59e0b' },
+  client: { icon: Users, color: '#38bdf8' },
+  overdue: { icon: AlertCircle, color: '#f87171' },
+}
+
+function NotificationPanel({ onClose }) {
+  const { notifications, markRead, markAllRead, clearAll } = useNotificationStore()
+  const ref = useRef()
+  const [currentTime] = useState(() => new Date())
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose])
 
   return (
-    <motion.aside
-      className="glass"
-      animate={{ width: collapsed ? 64 : 220 }}
-      transition={{ duration: 0.25, ease: 'easeInOut' }}
+    <motion.div ref={ref} initial={{ opacity: 0, x: -8, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -8, scale: 0.97 }}
       style={{
-        height: '100vh', position: 'sticky', top: 0,
-        background: 'var(--surface)',
-        borderRight: '1px solid var(--border)',
-        backdropFilter: 'var(--blur)',
-        WebkitBackdropFilter: 'var(--blur)',
-        boxShadow: '1px 0 18px rgba(0,0,0,0.04)',
-        display: 'flex', flexDirection: 'column',
-        overflow: 'hidden', flexShrink: 0,
-        zIndex: 10,
-      }}
-    >
-      {/* Logo */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
-        padding: collapsed ? '20px 0' : '20px 16px',
-        borderBottom: '1px solid var(--border)',
-        minHeight: 64,
+        position: 'fixed', left: 230, top: 80, width: 320, zIndex: 100,
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-            background: 'var(--text-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Zap size={14} color="white" fill="white" />
-          </div>
-          {!collapsed && (
-            <motion.span
-              initial={false}
-              animate={{ opacity: collapsed ? 0 : 1 }}
-              style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}
-            >
-              FreelancePortal
-            </motion.span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {notifications.some(n => !n.read) && (
+            <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--accent)' }}>Mark all read</button>
           )}
+          <button onClick={clearAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Clear all</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><X size={14} /></button>
         </div>
-        {!collapsed && (
-          <button
-            onClick={() => setCollapsed(true)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
-          >
-            <ChevronRight size={14} />
-          </button>
-        )}
       </div>
-
-      {/* Collapse toggle when collapsed */}
-      {collapsed && (
-        <button
-          onClick={() => setCollapsed(false)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', padding: '8px 0', width: '100%',
-            display: 'flex', justifyContent: 'center',
-            borderBottom: '1px solid var(--border)',
-            transition: 'all 0.28s var(--ease-apple)',
-          }}
-        >
-          <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-        </button>
-      )}
-
-      {/* Nav items */}
-      <nav style={{ flex: 1, padding: '8px 6px', overflowY: 'auto', overflowX: 'hidden' }}>
-        {navItems.map((item, i) => {
-          if (item.divider) {
-            return <div key={i} style={{ height: 1, background: 'var(--border)', margin: '5px 4px' }} />
-          }
+      <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+        {notifications.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No notifications</div>
+        ) : notifications.map((n, i) => {
+          const meta = notifIcons[n.type] || notifIcons.client
+          const elapsed = Math.round((currentTime - new Date(n.time)) / 60000)
+          const timeStr = elapsed < 60 ? `${elapsed}m ago` : elapsed < 1440 ? `${Math.round(elapsed / 60)}h ago` : `${Math.round(elapsed / 1440)}d ago`
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              style={{
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                padding: collapsed ? '9px 0' : '8px 10px',
-                marginBottom: 1,
-                fontSize: '0.85rem',
-              }}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon size={16} style={{ flexShrink: 0 }} />
-              {!collapsed && (
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>
-              )}
-            </NavLink>
+            <div key={n.id} onClick={() => markRead(n.id)}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', borderBottom: i < notifications.length - 1 ? '1px solid var(--border)' : 'none', background: n.read ? 'transparent' : 'rgba(169,130,82,0.05)', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+              onMouseLeave={e => e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(169,130,82,0.05)'}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: `${meta.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+                <meta.icon size={13} color={meta.color} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.82rem', color: n.read ? 'var(--text-secondary)' : 'var(--text-primary)', lineHeight: 1.4, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 3 }}>{timeStr}</div>
+              </div>
+              {!n.read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 6 }} />}
+            </div>
           )
         })}
-      </nav>
+      </div>
+    </motion.div>
+  )
+}
 
-      {/* User section */}
-      <div style={{ borderTop: '1px solid var(--border)', padding: '10px 6px' }}>
+export default function Sidebar({ collapsed, setCollapsed }) {
+  const navigate = useNavigate()
+  const { notifications } = useNotificationStore()
+  const [showNotifs, setShowNotifs] = useState(false)
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  return (
+    <>
+      <motion.aside
+        className="glass"
+        animate={{ width: collapsed ? 64 : 220 }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+        style={{
+          height: '100vh', position: 'sticky', top: 0,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--border)',
+          backdropFilter: 'var(--blur)',
+          WebkitBackdropFilter: 'var(--blur)',
+          boxShadow: '1px 0 18px rgba(0,0,0,0.04)',
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', flexShrink: 0,
+          zIndex: 10,
+        }}
+      >
+        {/* Logo */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: collapsed ? '10px 0' : '10px 10px',
-          borderRadius: 8, justifyContent: collapsed ? 'center' : 'flex-start',
+          display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
+          padding: collapsed ? '20px 0' : '20px 16px',
+          borderBottom: '1px solid var(--border)',
+          minHeight: 64,
         }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-light)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)',
-          }}>
-            R
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'visible' }}>
+            <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, borderRadius: 8, flexShrink: 0, objectFit: 'contain' }} />
+            {!collapsed && (
+              <motion.span initial={false} animate={{ opacity: collapsed ? 0 : 1 }}
+                style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                Velora
+              </motion.span>
+            )}
           </div>
           {!collapsed && (
-            <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Rodrigo Mendes
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Pro plan</div>
-            </div>
+            <button onClick={() => setCollapsed(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}>
+              <ChevronRight size={14} />
+            </button>
           )}
         </div>
-        <button
-          onClick={() => navigate('/login')}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
-            gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', padding: collapsed ? '8px 0' : '8px 10px',
-            borderRadius: 8, fontSize: '0.825rem',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-        >
-          <LogOut size={14} />
-          {!collapsed && <span>Sign out</span>}
-        </button>
-      </div>
-    </motion.aside>
+
+        {collapsed && (
+          <button onClick={() => setCollapsed(false)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: '8px 0', width: '100%',
+              display: 'flex', justifyContent: 'center',
+              borderBottom: '1px solid var(--border)',
+            }}>
+            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+        )}
+
+        {/* Notifications bell */}
+        <div style={{ padding: collapsed ? '8px 0' : '8px 10px', borderBottom: '1px solid var(--border)' }}>
+          <button onClick={() => setShowNotifs(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
+              gap: 8, width: '100%', background: showNotifs ? 'rgba(169,130,82,0.1)' : 'none',
+              border: 'none', cursor: 'pointer', borderRadius: 8,
+              color: showNotifs ? 'var(--accent)' : 'var(--text-muted)',
+              padding: collapsed ? '8px 0' : '8px 10px', position: 'relative',
+            }}
+            onMouseEnter={e => { if (!showNotifs) e.currentTarget.style.color = 'var(--text-secondary)' }}
+            onMouseLeave={e => { if (!showNotifs) e.currentTarget.style.color = 'var(--text-muted)' }}>
+            <div style={{ position: 'relative' }}>
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: -5, right: -5,
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.55rem', fontWeight: 800, color: 'white',
+                }}>{unreadCount > 9 ? '9+' : unreadCount}</div>
+              )}
+            </div>
+            {!collapsed && <span style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>Notifications</span>}
+          </button>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '8px 6px', overflowY: 'auto', overflowX: 'hidden' }}>
+          {navItems.map((item, i) => {
+            if (item.divider) {
+              return <div key={i} style={{ height: 1, background: 'var(--border)', margin: '5px 4px' }} />
+            }
+            return (
+              <NavLink key={item.path} to={item.path}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                style={{
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  padding: collapsed ? '9px 0' : '8px 10px',
+                  marginBottom: 1, fontSize: '0.85rem',
+                }}
+                title={collapsed ? item.label : undefined}>
+                <item.icon size={16} style={{ flexShrink: 0 }} />
+                {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>}
+              </NavLink>
+            )
+          })}
+        </nav>
+
+        {/* User section */}
+        <div style={{ borderTop: '1px solid var(--border)', padding: '10px 6px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: collapsed ? '10px 0' : '10px 10px',
+            borderRadius: 8, justifyContent: collapsed ? 'center' : 'flex-start',
+          }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+              background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)',
+            }}>R</div>
+            {!collapsed && (
+              <div style={{ overflow: 'hidden', flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Rodrigo Mendes
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Pro plan</div>
+              </div>
+            )}
+          </div>
+          <button onClick={() => navigate('/login')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
+              gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: collapsed ? '8px 0' : '8px 10px',
+              borderRadius: 8, fontSize: '0.825rem',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+            <LogOut size={14} />
+            {!collapsed && <span>Sign out</span>}
+          </button>
+        </div>
+      </motion.aside>
+
+      <AnimatePresence>
+        {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}
+      </AnimatePresence>
+    </>
   )
 }

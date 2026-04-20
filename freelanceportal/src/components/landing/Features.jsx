@@ -15,14 +15,14 @@ function Reveal({ children, delay = 0 }) {
 }
 
 const features = [
-  { icon: FileText, color: '#0071e3', title: 'Proposals & Contracts', desc: 'Build polished proposals, send legally-binding e-sign contracts. Clients sign in seconds.' },
-  { icon: CreditCard, color: '#34c759', title: 'Invoices & Payments', desc: 'Stripe-powered invoices. Accept cards and SEPA bank transfers. Get notified the moment you\'re paid.' },
-  { icon: FolderOpen, color: '#ff9500', title: 'File Delivery', desc: 'Share deliverables directly from the portal. No Dropbox links, no Drive folders.' },
-  { icon: MessageSquare, color: '#5856d6', title: 'Threaded Messaging', desc: 'Per-project message threads. Everything documented in one place, not scattered through email.' },
-  { icon: Palette, color: '#ff2d55', title: 'White-Label Branding', desc: 'Your logo. Your colors. Your domain. Clients never see our name.' },
-  { icon: Link2, color: '#007aff', title: 'Magic Links', desc: 'Clients click a link. No accounts, no passwords, no friction. Just a clean experience.' },
-  { icon: Shield, color: '#34c759', title: 'Legally Solid', desc: 'EU eIDAS-compliant e-signatures. Timestamped, IP-logged, stored as signed PDF.' },
-  { icon: Zap, color: '#ff9500', title: 'Automations', desc: 'Auto-reminders for unpaid invoices, unsigned contracts, and pending proposals.' },
+  { icon: FileText, color: '#a98252', title: 'Proposals & Contracts', desc: 'Build polished proposals, send legally-binding e-sign contracts. Clients sign in seconds.' },
+  { icon: CreditCard, color: '#bca57d', title: 'Invoices & Payments', desc: 'Stripe-powered invoices. Accept cards and SEPA bank transfers. Get notified the moment you\'re paid.' },
+  { icon: FolderOpen, color: '#d6c2a0', title: 'File Delivery', desc: 'Share deliverables directly from the portal. No Dropbox links, no Drive folders.' },
+  { icon: MessageSquare, color: '#8f6d43', title: 'Threaded Messaging', desc: 'Per-project message threads. Everything documented in one place, not scattered through email.' },
+  { icon: Palette, color: '#c9b28b', title: 'White-Label Branding', desc: 'Your logo. Your colors. Your domain. Clients never see our name.' },
+  { icon: Link2, color: '#a98252', title: 'Magic Links', desc: 'Clients click a link. No accounts, no passwords, no friction. Just a clean experience.' },
+  { icon: Shield, color: '#bca57d', title: 'Legally Solid', desc: 'EU eIDAS-compliant e-signatures. Timestamped, IP-logged, stored as signed PDF.' },
+  { icon: Zap, color: '#d6c2a0', title: 'Automations', desc: 'Auto-reminders for unpaid invoices, unsigned contracts, and pending proposals.' },
 ]
 
 export default function Features() {
@@ -32,7 +32,7 @@ export default function Features() {
         {/* Header */}
         <Reveal>
           <div style={{ textAlign: 'center', maxWidth: 580, margin: '0 auto 64px' }}>
-            <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0071e3', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
+            <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#a98252', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
               Features
             </p>
             <h2 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 700, letterSpacing: 0, color: '#1d1d1f', lineHeight: 1.1, marginBottom: 16 }}>

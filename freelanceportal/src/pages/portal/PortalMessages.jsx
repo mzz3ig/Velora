@@ -10,7 +10,7 @@ const INITIAL_MSGS = [
 ]
 
 export default function PortalMessages() {
-  const { freelancer, client } = useOutletContext()
+  const { freelancer } = useOutletContext()
   const [messages, setMessages] = useState(INITIAL_MSGS)
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)

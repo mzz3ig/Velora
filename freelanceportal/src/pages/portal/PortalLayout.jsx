@@ -1,4 +1,4 @@
-import { Outlet, useSearchParams, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, FileText, ScrollText, CreditCard,
@@ -11,7 +11,7 @@ const MOCK_PORTAL_DATA = {
   freelancer: {
     name: 'Rodrigo Mendes Studio',
     email: 'rodrigo@example.com',
-    brand_color: '#6366f1',
+    brand_color: '#a98252',
     logo: null,
   },
   client: {
@@ -43,13 +43,17 @@ export default function PortalLayout() {
       {/* Portal header — white-labeled */}
       <header style={{
         background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-        padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 24px', minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: brandColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Zap size={16} color="white" />
-          </div>
+          {freelancer.logo ? (
+            <img src={freelancer.logo} alt={freelancer.name} style={{ width: 48, height: 48, objectFit: 'contain' }} />
+          ) : (
+            <div style={{ width: 48, height: 48, borderRadius: 8, background: brandColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Zap size={24} color="white" />
+            </div>
+          )}
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{freelancer.name}</div>
           </div>
@@ -92,7 +96,7 @@ export default function PortalLayout() {
       {/* Footer */}
       <footer style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--surface)', textAlign: 'center' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Powered by FreelancePortal · {freelancer.name}
+          Powered by Velora · {freelancer.name}
         </span>
       </footer>
     </div>
