@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { saveAppStores } from '../../store'
 
 export default function Register() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -42,6 +43,7 @@ export default function Register() {
       return
     }
 
+    await saveAppStores()
     navigate('/app/dashboard')
   }
 

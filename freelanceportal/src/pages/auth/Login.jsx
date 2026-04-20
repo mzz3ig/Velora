@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { rehydrateAppStores, saveAppStores } from '../../store'
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -28,6 +29,8 @@ export default function Login() {
       return
     }
 
+    await rehydrateAppStores()
+    await saveAppStores()
     navigate('/app/dashboard')
   }
 

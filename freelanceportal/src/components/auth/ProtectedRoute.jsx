@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { rehydrateAppStores } from '../../store'
 
 export default function ProtectedRoute() {
   const [session, setSession] = useState(null)
@@ -10,13 +11,22 @@ export default function ProtectedRoute() {
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return
+
+      if (data.session) {
+        await rehydrateAppStores()
+      }
+
       setSession(data.session)
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (nextSession) {
+        await rehydrateAppStores()
+      }
+
       setSession(nextSession)
       setLoading(false)
     })

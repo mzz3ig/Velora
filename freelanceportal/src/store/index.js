@@ -1,5 +1,8 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { supabaseStorage } from './supabaseStorage'
+
+const dbStorage = createJSONStorage(() => supabaseStorage)
 
 // ─── CLIENTS ───────────────────────────────────────────────────────────────
 export const useClientStore = create(
@@ -21,7 +24,7 @@ export const useClientStore = create(
         clients: s.clients.map(c => c.id === clientId ? { ...c, activity: [{ id: Date.now(), ...event, time: new Date().toISOString() }, ...(c.activity || [])] } : c)
       })),
     }),
-    { name: 'velora-clients' }
+    { name: 'velora-clients', storage: dbStorage }
   )
 )
 
@@ -48,7 +51,7 @@ export const useProjectStore = create(
         })
       })),
     }),
-    { name: 'velora-projects' }
+    { name: 'velora-projects', storage: dbStorage }
   )
 )
 
@@ -78,7 +81,7 @@ export const useInvoiceStore = create(
       sendNow: (id) => set(s => ({ invoices: s.invoices.map(i => i.id === id ? { ...i, status: 'sent' } : i) })),
       deleteInvoice: (id) => set(s => ({ invoices: s.invoices.filter(i => i.id !== id) })),
     }),
-    { name: 'velora-invoices' }
+    { name: 'velora-invoices', storage: dbStorage }
   )
 )
 
@@ -102,7 +105,7 @@ export const useTaskStore = create(
       deleteSubtask: (taskId, subId) => set(s => ({ tasks: s.tasks.map(t => t.id === taskId ? { ...t, subtasks: t.subtasks.filter(s => s.id !== subId) } : t) })),
       addComment: (taskId, text) => set(s => ({ tasks: s.tasks.map(t => t.id === taskId ? { ...t, comments: [...(t.comments || []), { id: Date.now(), text, time: new Date().toISOString() }] } : t) })),
     }),
-    { name: 'velora-tasks' }
+    { name: 'velora-tasks', storage: dbStorage }
   )
 )
 
@@ -121,7 +124,7 @@ export const useTimeStore = create(
       updateEntry: (id, data) => set(s => ({ entries: s.entries.map(e => e.id === id ? { ...e, ...data } : e) })),
       deleteEntry: (id) => set(s => ({ entries: s.entries.filter(e => e.id !== id) })),
     }),
-    { name: 'velora-time' }
+    { name: 'velora-time', storage: dbStorage }
   )
 )
 
@@ -142,7 +145,7 @@ export const usePipelineStore = create(
       deleteDeal: (id) => set(s => ({ deals: s.deals.filter(d => d.id !== id) })),
       moveDeal: (id, stage) => set(s => ({ deals: s.deals.map(d => d.id === id ? { ...d, stage } : d) })),
     }),
-    { name: 'velora-pipeline' }
+    { name: 'velora-pipeline', storage: dbStorage }
   )
 )
 
@@ -168,7 +171,7 @@ export const useServiceStore = create(
         return { services: [...s.services, { ...orig, id: Date.now(), name: orig.name + ' (copy)' }] }
       }),
     }),
-    { name: 'velora-services' }
+    { name: 'velora-services', storage: dbStorage }
   )
 )
 
@@ -186,7 +189,7 @@ export const useFileStore = create(
       addFile: (file) => set(s => ({ files: [{ ...file, id: Date.now(), uploadedAt: new Date().toISOString().split('T')[0] }, ...s.files] })),
       deleteFile: (id) => set(s => ({ files: s.files.filter(f => f.id !== id) })),
     }),
-    { name: 'velora-files' }
+    { name: 'velora-files', storage: dbStorage }
   )
 )
 
@@ -206,7 +209,7 @@ export const useMessageStore = create(
       markRead: (convId) => set(s => ({ conversations: s.conversations.map(c => c.id === convId ? { ...c, unread: 0 } : c) })),
       addConversation: (conv) => set(s => ({ conversations: [{ id: Date.now(), ...conv, messages: [], unread: 0 }, ...s.conversations] })),
     }),
-    { name: 'velora-messages' }
+    { name: 'velora-messages', storage: dbStorage }
   )
 )
 
@@ -226,7 +229,7 @@ export const useFormStore = create(
         forms: s.forms.map(f => f.id === formId ? { ...f, submissions: [...f.submissions, { id: Date.now(), data, submittedAt: new Date().toISOString() }] } : f)
       })),
     }),
-    { name: 'velora-forms' }
+    { name: 'velora-forms', storage: dbStorage }
   )
 )
 
@@ -260,7 +263,7 @@ export const useSchedulingStore = create(
       addBooking: (b) => set(s => ({ bookings: [...s.bookings, { id: Date.now(), ...b }] })),
       updateAvailability: (availability) => set(() => ({ availability })),
     }),
-    { name: 'velora-scheduling' }
+    { name: 'velora-scheduling', storage: dbStorage }
   )
 )
 
@@ -285,7 +288,7 @@ export const useAutomationStore = create(
       toggleAutomation: (id) => set(s => ({ automations: s.automations.map(a => a.id === id ? { ...a, enabled: !a.enabled } : a) })),
       deleteAutomation: (id) => set(s => ({ automations: s.automations.filter(a => a.id !== id) })),
     }),
-    { name: 'velora-automations' }
+    { name: 'velora-automations', storage: dbStorage }
   )
 )
 
@@ -304,7 +307,7 @@ export const useExpenseStore = create(
       updateExpense: (id, data) => set(s => ({ expenses: s.expenses.map(e => e.id === id ? { ...e, ...data } : e) })),
       deleteExpense: (id) => set(s => ({ expenses: s.expenses.filter(e => e.id !== id) })),
     }),
-    { name: 'velora-expenses' }
+    { name: 'velora-expenses', storage: dbStorage }
   )
 )
 
@@ -322,7 +325,7 @@ export const useSettingsStore = create(
       updateNotifications: (data) => set(s => ({ notifications: { ...s.notifications, ...data } })),
       updateDomain: (data) => set(s => ({ domain: { ...s.domain, ...data } })),
     }),
-    { name: 'velora-settings' }
+    { name: 'velora-settings', storage: dbStorage }
   )
 )
 
@@ -342,6 +345,36 @@ export const useNotificationStore = create(
       markAllRead: () => set(s => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) })),
       clearAll: () => set(() => ({ notifications: [] })),
     }),
-    { name: 'velora-notifications' }
+    { name: 'velora-notifications', storage: dbStorage }
   )
 )
+
+const persistedStores = [
+  { name: 'velora-clients', store: useClientStore },
+  { name: 'velora-projects', store: useProjectStore },
+  { name: 'velora-invoices', store: useInvoiceStore },
+  { name: 'velora-tasks', store: useTaskStore },
+  { name: 'velora-time', store: useTimeStore },
+  { name: 'velora-pipeline', store: usePipelineStore },
+  { name: 'velora-services', store: useServiceStore },
+  { name: 'velora-files', store: useFileStore },
+  { name: 'velora-messages', store: useMessageStore },
+  { name: 'velora-forms', store: useFormStore },
+  { name: 'velora-scheduling', store: useSchedulingStore },
+  { name: 'velora-automations', store: useAutomationStore },
+  { name: 'velora-expenses', store: useExpenseStore },
+  { name: 'velora-settings', store: useSettingsStore },
+  { name: 'velora-notifications', store: useNotificationStore },
+]
+
+export async function rehydrateAppStores() {
+  await Promise.all(persistedStores.map(({ store }) => store.persist.rehydrate()))
+}
+
+export async function saveAppStores() {
+  await Promise.all(
+    persistedStores.map(({ name, store }) =>
+      supabaseStorage.setItem(name, JSON.stringify({ state: store.getState(), version: 0 })),
+    ),
+  )
+}

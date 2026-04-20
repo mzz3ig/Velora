@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Users, Briefcase, FileText,
@@ -107,13 +107,12 @@ function NotificationPanel({ onClose }) {
 }
 
 export default function Sidebar({ collapsed, setCollapsed }) {
-  const navigate = useNavigate()
   const { notifications } = useNotificationStore()
   const [showNotifs, setShowNotifs] = useState(false)
   const unreadCount = notifications.filter(n => !n.read).length
   const signOut = async () => {
     await supabase.auth.signOut()
-    navigate('/login')
+    window.location.assign('/login')
   }
 
   return (
