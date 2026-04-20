@@ -2,18 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, ScrollText, CheckCircle2, Clock, Send, FileDown, X,
-  PenTool, Type, RotateCcw, Check, Shield, Calendar,
+  PenTool, Type, RotateCcw, Check, Shield, Copy,
 } from 'lucide-react'
-
-const CLIENTS = ['Acme Corporation', 'Sara Johnson', 'TechStart', 'Boutique XO', 'Lucas Müller']
-
-const initialContracts = [
-  { id: 1, project: 'Webflow Redesign', client: 'Acme Corporation', status: 'signed', date: '2026-03-05', value: '€3,350', signed_at: '2026-03-05T14:32:00', signer_ip: '85.245.x.x' },
-  { id: 2, project: 'Brand Identity', client: 'Sara Johnson', status: 'signed', date: '2026-03-18', value: '€2,100', signed_at: '2026-03-18T10:15:00', signer_ip: '92.251.x.x' },
-  { id: 3, project: 'Mobile App UI', client: 'TechStart', status: 'sent', date: '2026-04-02', value: '€4,800', signed_at: null, signer_ip: null },
-  { id: 4, project: 'E-commerce Site', client: 'Boutique XO', status: 'signed', date: '2026-03-22', value: '€5,200', signed_at: '2026-03-22T09:45:00', signer_ip: '78.130.x.x' },
-  { id: 5, project: 'Newsletter System', client: 'Lucas Müller', status: 'draft', date: '2026-04-14', value: '€1,600', signed_at: null, signer_ip: null },
-]
+import { useClientStore, useContractStore, useProjectStore } from '../../store'
+import { createPortalLink } from '../../lib/portal'
 
 const clauses = [
   { title: 'Payment Terms', text: 'Payment is due within 14 days of invoice date. A late payment fee of 2% per month applies to overdue invoices.' },
@@ -185,18 +177,29 @@ function SignatureCanvas({ onSave, onClose }) {
 }
 
 function NewContractModal({ onClose, onAdd }) {
+  const { clients } = useClientStore()
+  const { projects } = useProjectStore()
   const [content, setContent] = useState(DEFAULT_CONTRACT)
-  const [client, setClient] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [projectId, setProjectId] = useState('')
   const [project, setProject] = useState('')
   const [value, setValue] = useState('')
   const [showClauses, setShowClauses] = useState(false)
 
   function submit(asDraft) {
+    const client = clients.find(c => String(c.id) === String(clientId))
+    const linkedProject = projects.find(p => String(p.id) === String(projectId))
     if (!client || !project) return
     onAdd({
-      id: Date.now(), project, client, status: asDraft ? 'draft' : 'sent',
+      project,
+      projectId: linkedProject?.id || null,
+      client: client.name,
+      clientId: client.id,
+      status: asDraft ? 'draft' : 'sent',
       date: new Date().toISOString().split('T')[0], value: value ? `€${value}` : '—',
-      signed_at: null, signer_ip: null,
+      signed_at: null,
+      signer_name: null,
+      content,
     })
     onClose()
   }
@@ -215,13 +218,27 @@ function NewContractModal({ onClose, onAdd }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div>
             <label className="label">Client</label>
-            <select className="input" value={client} onChange={e => setClient(e.target.value)}>
+            <select className="input" value={clientId} onChange={e => {
+                setClientId(e.target.value)
+                setProjectId('')
+              }}>
               <option value="">Select client…</option>
-              {CLIENTS.map(c => <option key={c}>{c}</option>)}
+              {clients.filter(c => c.status === 'active').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Project</label>
+            <label className="label">Connected project</label>
+            <select className="input" value={projectId} onChange={e => {
+                const linkedProject = projects.find(p => String(p.id) === e.target.value)
+                setProjectId(e.target.value)
+                if (linkedProject) setProject(linkedProject.name)
+              }}>
+              <option value="">No project</option>
+              {projects.filter(p => !clientId || String(p.clientId) === String(clientId)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Project name</label>
             <input className="input" placeholder="Project name" value={project} onChange={e => setProject(e.target.value)} />
           </div>
           <div>
@@ -334,19 +351,33 @@ function SignContractModal({ contract, onSign, onClose }) {
 }
 
 export default function Contracts() {
-  const [contracts, setContracts] = useState(initialContracts)
+  const { contracts, addContract, markSigned } = useContractStore()
   const [showModal, setShowModal] = useState(false)
   const [signContract, setSignContract] = useState(null)
+  const [portalLink, setPortalLink] = useState(null)
+  const [portalError, setPortalError] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  function addContract(c) { setContracts(prev => [c, ...prev]) }
-
-  function markSigned(id) {
-    setContracts(c => c.map(x => x.id === id ? {
-      ...x, status: 'signed',
-      signed_at: new Date().toISOString(),
-      signer_ip: '192.168.x.x',
-    } : x))
+  function markContractSigned(id) {
+    markSigned(id, { signer_name: 'Preview signer' })
     setSignContract(null)
+  }
+
+  async function createLink(contract) {
+    setPortalError('')
+    setCopied(false)
+    try {
+      const link = await createPortalLink({ clientId: contract.clientId, projectId: contract.projectId, expiresInDays: 30 })
+      setPortalLink({ contractId: contract.id, url: link.url })
+    } catch (error) {
+      setPortalError(error.message || 'Could not create a portal link.')
+    }
+  }
+
+  async function copyLink() {
+    if (!portalLink?.url) return
+    await navigator.clipboard.writeText(portalLink.url)
+    setCopied(true)
   }
 
   const stats = [
@@ -362,7 +393,7 @@ export default function Contracts() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 }}>Contracts</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Create, send, and collect e-signatures · PDF generation in Phase 1</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Create, send, and collect e-signatures through client portal links</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary" style={{ padding: '9px 18px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Plus size={15} /> New contract
@@ -411,8 +442,8 @@ export default function Contracts() {
                   <s.icon size={10} /> {s.label}
                 </span>
                 {c.status === 'sent' && (
-                  <button onClick={() => setSignContract(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f59e0b', padding: 2 }} title="Preview signing (demo)">
-                    <PenTool size={13} />
+                  <button onClick={() => createLink(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f59e0b', padding: 2 }} title="Create portal link">
+                    <Send size={13} />
                   </button>
                 )}
                 {c.status === 'signed' && (
@@ -424,11 +455,30 @@ export default function Contracts() {
             </motion.div>
           )
         })}
+        {contracts.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No contracts yet</div>}
       </motion.div>
+
+      {(portalLink || portalError) && (
+        <div className="card" style={{ marginTop: 16, padding: 16 }}>
+          {portalError ? (
+            <div className="badge badge-red" style={{ padding: '8px 12px', borderRadius: 8 }}>{portalError}</div>
+          ) : (
+            <>
+              <label className="label">Contract portal link</label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <input className="input" readOnly value={portalLink.url} style={{ fontSize: '0.78rem' }} />
+                <button onClick={copyLink} className="btn-primary btn-sm" style={{ flexShrink: 0 }}>
+                  <Copy size={13} /> {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {showModal && <NewContractModal onClose={() => setShowModal(false)} onAdd={addContract} />}
-        {signContract && <SignContractModal contract={signContract} onSign={markSigned} onClose={() => setSignContract(null)} />}
+        {signContract && <SignContractModal contract={signContract} onSign={markContractSigned} onClose={() => setSignContract(null)} />}
       </AnimatePresence>
     </div>
   )

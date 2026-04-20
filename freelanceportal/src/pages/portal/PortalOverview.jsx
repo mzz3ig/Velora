@@ -3,25 +3,40 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, Clock, FileText, CreditCard, FolderOpen, MessageSquare } from 'lucide-react'
 
 export default function PortalOverview() {
-  const { freelancer, client, project } = useOutletContext()
+  const { freelancer, client, project, portal } = useOutletContext()
+  const proposals = portal?.proposals || []
+  const contracts = portal?.contracts || []
+  const invoices = portal?.invoices || []
+  const files = portal?.files || []
+  const tasks = portal?.tasks || []
+
+  const proposal = proposals[0]
+  const contract = contracts[0]
+  const invoice = invoices[0]
+  const paidInvoices = invoices.filter(inv => inv.status === 'paid')
+  const projectProgress = Number(project?.progress || 0)
 
   const STEPS = [
-    { icon: FileText, label: 'Proposal', status: 'done', desc: 'Accepted on Apr 5' },
-    { icon: CheckCircle2, label: 'Contract', status: 'done', desc: 'Signed on Apr 7' },
-    { icon: CreditCard, label: 'Deposit', status: 'done', desc: 'Paid €1,675' },
-    { icon: Clock, label: 'Work in progress', status: 'active', desc: '65% complete' },
-    { icon: FolderOpen, label: 'Delivery', status: 'pending', desc: 'Est. Apr 28' },
-    { icon: CreditCard, label: 'Final invoice', status: 'pending', desc: 'Due on delivery' },
+    { icon: FileText, label: 'Proposal', status: proposal?.status === 'accepted' ? 'done' : proposal ? 'active' : 'pending', desc: proposal ? `${proposal.status || 'sent'}${proposal.responded_at ? ` on ${new Date(proposal.responded_at).toLocaleDateString()}` : ''}` : 'Not shared yet' },
+    { icon: CheckCircle2, label: 'Contract', status: contract?.status === 'signed' ? 'done' : contract ? 'active' : 'pending', desc: contract ? `${contract.status || 'sent'}${contract.signed_at ? ` on ${new Date(contract.signed_at).toLocaleDateString()}` : ''}` : 'Not shared yet' },
+    { icon: CreditCard, label: 'Payments', status: paidInvoices.length > 0 ? 'done' : invoice ? 'active' : 'pending', desc: invoice ? `${paidInvoices.length}/${invoices.length} paid` : 'No invoice shared' },
+    { icon: Clock, label: 'Work in progress', status: projectProgress >= 100 ? 'done' : projectProgress > 0 ? 'active' : 'pending', desc: project ? `${projectProgress}% complete` : 'No project connected' },
+    { icon: FolderOpen, label: 'Files', status: files.length > 0 ? 'active' : 'pending', desc: `${files.length} shared file${files.length === 1 ? '' : 's'}` },
+    { icon: MessageSquare, label: 'Visible tasks', status: tasks.length > 0 ? 'active' : 'pending', desc: `${tasks.length} client-visible task${tasks.length === 1 ? '' : 's'}` },
   ]
 
   return (
     <div style={{ maxWidth: 720 }}>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
-          Welcome, {client.contact} 👋
+          Welcome{client?.name ? `, ${client.name}` : ''}
         </h1>
         <p style={{ color: 'var(--text-muted)', marginBottom: 28 }}>
-          Here's the status of your <strong style={{ color: 'var(--text-primary)' }}>{project.name}</strong> project with {freelancer.name}.
+          {project?.name ? (
+            <>Here is the status of your <strong style={{ color: 'var(--text-primary)' }}>{project.name}</strong> project with {freelancer.name}.</>
+          ) : (
+            <>Your shared client portal with {freelancer.name}.</>
+          )}
         </p>
       </motion.div>
 
@@ -58,9 +73,9 @@ export default function PortalOverview() {
       {/* Quick actions */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {[
-          { label: 'Download contract', icon: FileText, action: 'Contract PDF (Phase 1)', color: '#a98252' },
-          { label: 'Pay invoice', icon: CreditCard, action: 'Stripe payment — Phase 1', color: '#22c55e' },
-          { label: 'Send message', icon: MessageSquare, action: 'Message freelancer', color: '#f59e0b' },
+          { label: contract ? 'Review contract' : 'No contract yet', icon: FileText, action: contract?.status || 'Waiting for freelancer', color: '#a98252' },
+          { label: invoice ? 'Review invoice' : 'No invoice yet', icon: CreditCard, action: invoice ? `€${Number(invoice.amount || 0).toLocaleString()}` : 'Waiting for freelancer', color: '#22c55e' },
+          { label: 'Send message', icon: MessageSquare, action: `Message ${freelancer.name}`, color: '#f59e0b' },
         ].map(item => (
           <motion.div key={item.label} whileHover={{ y: -2 }} className="card"
             style={{ padding: '18px', textAlign: 'center', cursor: 'pointer', borderTop: `3px solid ${item.color}` }}>

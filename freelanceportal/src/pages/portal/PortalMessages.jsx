@@ -1,29 +1,37 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Send } from 'lucide-react'
-
-const INITIAL_MSGS = [
-  { id: 1, from: 'freelancer', text: 'Hi! Welcome to your client portal. Feel free to ask me anything about the project.', time: '2026-04-07 09:30' },
-  { id: 2, from: 'client', text: 'Thanks! When can I expect the first mockups?', time: '2026-04-07 10:15' },
-  { id: 3, from: 'freelancer', text: 'I\'ll have the homepage mockup ready by Friday. I\'ll upload it here for your review.', time: '2026-04-07 10:22' },
-]
+import { sendPortalMessage } from '../../lib/portal'
 
 export default function PortalMessages() {
-  const { freelancer } = useOutletContext()
-  const [messages, setMessages] = useState(INITIAL_MSGS)
+  const { token, freelancer, portal, setPortal } = useOutletContext()
+  const conversation = portal?.messages?.[0]
+  const messages = useMemo(() => conversation?.messages || [], [conversation])
   const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
   const bottomRef = useRef(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
-  function send() {
+  async function send() {
     if (!input.trim()) return
-    setMessages(m => [...m, { id: Date.now(), from: 'client', text: input, time: 'Just now' }])
-    setInput('')
-    setTimeout(() => {
-      setMessages(m => [...m, { id: Date.now() + 1, from: 'freelancer', text: 'Got your message! I\'ll get back to you shortly.', time: 'Just now' }])
-    }, 1200)
+    const text = input.trim()
+    setSending(true)
+    setError('')
+    try {
+      const next = await sendPortalMessage(token, text)
+      if (next?.error) setError('Unable to send this message.')
+      else {
+        setPortal(next)
+        setInput('')
+      }
+    } catch (err) {
+      setError(err.message || 'Unable to send this message.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -34,6 +42,11 @@ export default function PortalMessages() {
       <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
         {/* Messages */}
         <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {messages.length === 0 && (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>
+              No messages yet. Start the conversation below.
+            </div>
+          )}
           {messages.map(msg => (
             <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: msg.from === 'client' ? 'flex-end' : 'flex-start' }}>
@@ -45,24 +58,30 @@ export default function PortalMessages() {
               }}>
                 {msg.text}
               </div>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 3 }}>{msg.time}</span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                {msg.time ? new Date(msg.time).toLocaleString() : ''}
+              </span>
             </motion.div>
           ))}
           <div ref={bottomRef} />
         </div>
 
         {/* Input */}
-        <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 10 }}>
+        <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 10, flexDirection: 'column' }}>
+          {error && <div className="badge badge-red" style={{ width: 'fit-content', padding: '6px 10px', borderRadius: 8 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 10 }}>
           <input className="input" value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
             placeholder="Type a message… (Enter to send)"
             style={{ flex: 1 }} />
-          <button onClick={send} style={{
+          <button onClick={send} disabled={sending} style={{
             padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: 8,
-            cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', gap: 6,
+            cursor: sending ? 'not-allowed' : 'pointer', color: 'white', display: 'flex', alignItems: 'center', gap: 6,
+            opacity: sending ? 0.7 : 1,
           }}>
             <Send size={15} />
           </button>
+          </div>
         </div>
       </div>
     </div>

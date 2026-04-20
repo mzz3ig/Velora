@@ -2,24 +2,42 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CheckCircle2, X, FileText, Calendar } from 'lucide-react'
-
-const PROPOSAL = {
-  project: 'Webflow Redesign',
-  expiry: '2026-04-20',
-  items: [
-    { service: 'Homepage Design', qty: 1, price: 800, subtotal: 800 },
-    { service: 'Inner pages (x5)', qty: 5, price: 200, subtotal: 1000 },
-    { service: 'Webflow Development', qty: 1, price: 1200, subtotal: 1200 },
-    { service: 'SEO Setup', qty: 1, price: 350, subtotal: 350 },
-  ],
-  notes: 'Payment: 50% deposit before work starts, 50% on delivery. Includes 2 revision rounds.',
-}
+import { acceptPortalProposal } from '../../lib/portal'
 
 export default function PortalProposal() {
-  const { freelancer, client } = useOutletContext()
-  const [status, setStatus] = useState('pending') // pending | accepted | declined
+  const { token, freelancer, client, portal, setPortal } = useOutletContext()
+  const proposal = portal?.proposals?.[0]
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
-  const total = PROPOSAL.items.reduce((s, i) => s + i.subtotal, 0)
+  const items = proposal?.items || []
+  const total = proposal?.total ?? items.reduce((s, i) => s + Number(i.subtotal ?? i.qty * i.price), 0)
+
+  async function respond(decision) {
+    if (!proposal) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const next = await acceptPortalProposal(token, proposal.id, decision)
+      if (next?.error) setError('Unable to update this proposal.')
+      else setPortal(next)
+    } catch (err) {
+      setError(err.message || 'Unable to update this proposal.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!proposal) {
+    return (
+      <div style={{ maxWidth: 680 }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Proposal</h1>
+        <div className="card" style={{ padding: 28, color: 'var(--text-muted)' }}>
+          No proposal has been shared in this portal yet.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 680 }}>
@@ -29,12 +47,12 @@ export default function PortalProposal() {
       <div className="card" style={{ padding: '28px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 4 }}>{PROPOSAL.project}</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Prepared for {client.contact}</div>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 4 }}>{proposal.project}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Prepared for {client?.name || proposal.client}</div>
           </div>
-          {PROPOSAL.expiry && (
+          {proposal.expiry && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.775rem', color: '#ef4444' }}>
-              <Calendar size={12} /> Valid until {PROPOSAL.expiry}
+              <Calendar size={12} /> Valid until {proposal.expiry}
             </div>
           )}
         </div>
@@ -48,12 +66,12 @@ export default function PortalProposal() {
             </tr>
           </thead>
           <tbody>
-            {PROPOSAL.items.map((item, i) => (
+            {items.map((item, i) => (
               <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.service}</td>
+                <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.service || item.name}</td>
                 <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>{item.qty}</td>
-                <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>€{item.price}</td>
-                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>€{item.subtotal.toLocaleString()}</td>
+                <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>€{Number(item.price || 0).toLocaleString()}</td>
+                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>€{Number(item.subtotal ?? item.qty * item.price).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -66,28 +84,30 @@ export default function PortalProposal() {
           </div>
         </div>
 
-        {PROPOSAL.notes && (
+        {proposal.notes && (
           <div style={{ padding: '12px 14px', background: 'var(--bg-secondary)', borderRadius: 8, fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-            {PROPOSAL.notes}
+            {proposal.notes}
           </div>
         )}
       </div>
 
+      {error && <div className="badge badge-red" style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+
       {/* Action */}
-      {status === 'pending' && (
+      {proposal.status === 'sent' && (
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => setStatus('declined')}
+          <button onClick={() => respond('declined')} disabled={submitting}
             style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <X size={16} /> Decline
           </button>
-          <button onClick={() => setStatus('accepted')}
+          <button onClick={() => respond('accepted')} disabled={submitting}
             style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', background: freelancer.brand_color, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <CheckCircle2 size={18} /> Accept proposal
+            <CheckCircle2 size={18} /> {submitting ? 'Saving...' : 'Accept proposal'}
           </button>
         </div>
       )}
 
-      {status === 'accepted' && (
+      {proposal.status === 'accepted' && (
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           className="card" style={{ padding: '24px', textAlign: 'center', border: '1px solid #22c55e40' }}>
           <CheckCircle2 size={40} color="#22c55e" style={{ margin: '0 auto 12px' }} />
@@ -96,7 +116,7 @@ export default function PortalProposal() {
         </motion.div>
       )}
 
-      {status === 'declined' && (
+      {proposal.status === 'declined' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="card" style={{ padding: '24px', textAlign: 'center' }}>
           <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Proposal declined</div>

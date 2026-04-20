@@ -1,20 +1,20 @@
-import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FolderOpen, Download, Upload, FileText, Image, Archive } from 'lucide-react'
-
-const FILES = [
-  { id: 1, name: 'Homepage Mockup v1.pdf', size: '4.2 MB', type: 'pdf', from: 'freelancer', date: '2026-04-12' },
-  { id: 2, name: 'Brand Guidelines.pdf', size: '8.1 MB', type: 'pdf', from: 'freelancer', date: '2026-04-10' },
-  { id: 3, name: 'Client Logo Files.zip', size: '12.4 MB', type: 'zip', from: 'client', date: '2026-04-08' },
-]
 
 const typeIcon = { pdf: FileText, image: Image, zip: Archive }
 const typeColor = { pdf: '#ef4444', image: '#06b6d4', zip: '#f59e0b' }
 
 export default function PortalFiles() {
-  const { freelancer } = useOutletContext()
-  const [files] = useState(FILES)
+  const { freelancer, portal } = useOutletContext()
+  const files = portal?.files || []
+
+  const formatSize = (size) => {
+    if (!size || typeof size === 'string') return size || '—'
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  }
 
   return (
     <div style={{ maxWidth: 640 }}>
@@ -25,11 +25,15 @@ export default function PortalFiles() {
       <div style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '24px', textAlign: 'center', marginBottom: 24, cursor: 'pointer', opacity: 0.7 }}>
         <Upload size={24} style={{ margin: '0 auto 8px', color: 'var(--text-muted)' }} />
         <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', margin: 0 }}>Upload files to share with {freelancer.name}</p>
-        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>Supabase Storage — Phase 1</p>
+        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>Client uploads need a connected storage bucket before files can be accepted here.</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {files.map(file => {
+        {files.length === 0 ? (
+          <div className="card" style={{ padding: 28, color: 'var(--text-muted)' }}>
+            No files have been shared in this portal yet.
+          </div>
+        ) : files.map(file => {
           const Icon = typeIcon[file.type] || FileText
           const color = typeColor[file.type] || '#94a3b8'
           return (
@@ -41,10 +45,11 @@ export default function PortalFiles() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  {file.size} · {file.date} · {file.from === 'freelancer' ? `from ${freelancer.name}` : 'uploaded by you'}
+                  {formatSize(file.size)} · {file.uploadedAt || file.date || '—'} · {file.fromClient ? 'uploaded by you' : `from ${freelancer.name}`}
                 </div>
               </div>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.775rem' }}>
+              <button onClick={() => file.url && window.open(file.url, '_blank', 'noopener,noreferrer')} disabled={!file.url}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 7, cursor: file.url ? 'pointer' : 'not-allowed', color: 'var(--text-secondary)', fontSize: '0.775rem', opacity: file.url ? 1 : 0.5 }}>
                 <Download size={12} /> Download
               </button>
             </motion.div>

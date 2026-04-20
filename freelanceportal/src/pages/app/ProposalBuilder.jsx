@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Send, Eye, Save, ArrowLeft, FileText } from 'lucide-react'
+import { Plus, Trash2, Send, Eye, ArrowLeft, FileText, Copy } from 'lucide-react'
 import { Link } from 'react-router-dom'
-
-const clients = ['Acme Corporation', 'Sara Johnson', 'Webflow Agency', 'Lucas Müller', 'Boutique XO']
+import { useClientStore, useProjectStore, useProposalStore } from '../../store'
+import { createPortalLink } from '../../lib/portal'
 
 const defaultItems = [
   { id: 1, name: 'Strategy & Discovery', qty: 1, price: 800 },
@@ -12,7 +12,11 @@ const defaultItems = [
 ]
 
 export default function ProposalBuilder() {
-  const [client, setClient] = useState('')
+  const { clients } = useClientStore()
+  const { projects } = useProjectStore()
+  const { addProposal } = useProposalStore()
+  const [clientId, setClientId] = useState('')
+  const [projectId, setProjectId] = useState('')
   const [projectName, setProjectName] = useState('')
   const [items, setItems] = useState(defaultItems)
   const [discount, setDiscount] = useState(0)
@@ -20,6 +24,14 @@ export default function ProposalBuilder() {
   const [expiry, setExpiry] = useState('')
   const [preview, setPreview] = useState(false)
   const [sent, setSent] = useState(false)
+  const [portalUrl, setPortalUrl] = useState('')
+  const [sendError, setSendError] = useState('')
+  const [sending, setSending] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const selectedClient = clients.find(c => String(c.id) === String(clientId))
+  const selectedProject = projects.find(p => String(p.id) === String(projectId))
+  const client = selectedClient?.name || ''
 
   const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0)
   const discountAmount = (subtotal * discount) / 100
@@ -29,9 +41,38 @@ export default function ProposalBuilder() {
   const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id))
   const updateItem = (id, field, value) => setItems(prev => prev.map(i => i.id === id ? {...i, [field]: value} : i))
 
-  const handleSend = () => {
-    if (!client || !projectName) return
-    setSent(true)
+  const handleSend = async () => {
+    if (!selectedClient || !projectName) return
+    setSending(true)
+    setSendError('')
+    try {
+      const proposal = {
+        clientId: selectedClient.id,
+        client: selectedClient.name,
+        projectId: selectedProject?.id || null,
+        project: projectName,
+        expiry,
+        items: items.map(item => ({ ...item, service: item.name, subtotal: Number(item.qty) * Number(item.price) })),
+        discount,
+        notes,
+        subtotal,
+        total,
+        status: 'sent',
+      }
+      addProposal(proposal)
+      const link = await createPortalLink({ clientId: selectedClient.id, projectId: selectedProject?.id || null, expiresInDays: 30 })
+      setPortalUrl(link.url)
+      setSent(true)
+    } catch (error) {
+      setSendError(error.message || 'Could not send this proposal.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const copyPortalLink = async () => {
+    await navigator.clipboard.writeText(portalUrl)
+    setCopied(true)
   }
 
   if (preview) {
@@ -143,8 +184,19 @@ export default function ProposalBuilder() {
           }}>✓</div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>Proposal sent!</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
-            Your client <strong>{client}</strong> will receive an email with a link to review and accept the proposal.
+            Your proposal was saved and a secure portal link was created for <strong>{client}</strong>.
           </p>
+          {portalUrl && (
+            <div className="card" style={{ padding: 14, marginBottom: 18, textAlign: 'left' }}>
+              <label className="label">Magic link</label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <input className="input" readOnly value={portalUrl} style={{ fontSize: '0.78rem' }} />
+                <button onClick={copyPortalLink} className="btn-primary btn-sm" style={{ flexShrink: 0 }}>
+                  <Copy size={13} /> {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <button onClick={() => setSent(false)} className="btn-ghost" style={{ padding: '10px 20px' }}>Create another</button>
             <Link to="/app/dashboard" style={{ textDecoration: 'none' }}>
@@ -168,11 +220,13 @@ export default function ProposalBuilder() {
           <button onClick={() => setPreview(true)} className="btn-ghost" style={{ padding: '8px 16px', fontSize: '0.875rem' }}>
             <Eye size={14} /> Preview
           </button>
-          <button onClick={handleSend} className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.875rem' }}>
-            <Send size={14} /> Send proposal
+          <button onClick={handleSend} disabled={sending} className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.875rem', opacity: sending ? 0.7 : 1 }}>
+            <Send size={14} /> {sending ? 'Sending...' : 'Send proposal'}
           </button>
         </div>
       </motion.div>
+
+      {sendError && <div className="badge badge-red" style={{ marginBottom: 16, padding: '8px 12px', borderRadius: 8 }}>{sendError}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Project info */}
@@ -181,15 +235,30 @@ export default function ProposalBuilder() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Client *</label>
-              <select className="input" value={client} onChange={e => setClient(e.target.value)}
+              <select className="input" value={clientId} onChange={e => {
+                  const nextClientId = e.target.value
+                  setClientId(nextClientId)
+                  setProjectId('')
+                }}
                 style={{ appearance: 'none' }}>
                 <option value="">Select client…</option>
-                {clients.map(c => <option key={c} value={c}>{c}</option>)}
+                {clients.filter(c => c.status === 'active').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Project name *</label>
               <input className="input" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Connect project</label>
+              <select className="input" value={projectId} onChange={e => {
+                  const nextProject = projects.find(p => String(p.id) === e.target.value)
+                  setProjectId(e.target.value)
+                  if (nextProject) setProjectName(nextProject.name)
+                }}>
+                <option value="">No project</option>
+                {projects.filter(p => !clientId || String(p.clientId) === String(clientId)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Expiry date</label>

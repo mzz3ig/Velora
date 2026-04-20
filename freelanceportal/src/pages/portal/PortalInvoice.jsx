@@ -1,26 +1,27 @@
-import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CreditCard, CheckCircle2, Lock, Shield, ExternalLink } from 'lucide-react'
 
 export default function PortalInvoice() {
-  const { freelancer } = useOutletContext()
-  const [paying, setPaying] = useState(false)
-  const [paid, setPaid] = useState(false)
+  const { freelancer, portal } = useOutletContext()
+  const invoice = portal?.invoices?.[0]
 
-  const invoice = {
-    id: 'INV-001', amount: 1675, due: '2026-04-20', status: 'sent',
-    items: [
-      { description: 'Webflow Redesign — Deposit (50%)', amount: 1675 },
-    ],
+  if (!invoice) {
+    return (
+      <div style={{ maxWidth: 560 }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Invoice</h1>
+        <div className="card" style={{ padding: 28, color: 'var(--text-muted)' }}>
+          No invoice has been shared in this portal yet.
+        </div>
+      </div>
+    )
   }
 
-  function handlePay() {
-    setPaying(true)
-    // In Phase 1: redirect to Stripe Checkout or open Stripe Payment Link
-    // stripe.redirectToCheckout({ sessionId: 'cs_xxx' })
-    setTimeout(() => { setPaying(false); setPaid(true) }, 2000)
-  }
+  const discounted = Number(invoice.amount || 0) * (1 - Number(invoice.discount || 0) / 100)
+  const total = discounted * (1 + Number(invoice.tax || 0) / 100)
+  const items = invoice.items?.length ? invoice.items : [{ description: invoice.project || invoice.type || 'Invoice', amount: total }]
+  const paid = invoice.status === 'paid'
+  const paymentUrl = invoice.paymentUrl || invoice.payment_url || invoice.stripePaymentUrl
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -35,7 +36,7 @@ export default function PortalInvoice() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Due date</div>
-            <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{invoice.due}</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{invoice.due || '—'}</div>
           </div>
         </div>
 
@@ -47,10 +48,10 @@ export default function PortalInvoice() {
             </tr>
           </thead>
           <tbody>
-            {invoice.items.map((item, i) => (
+            {items.map((item, i) => (
               <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '12px 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.description}</td>
-                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>€{item.amount.toLocaleString()}</td>
+                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>€{Number(item.amount || 0).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -58,7 +59,7 @@ export default function PortalInvoice() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>Total due</span>
-          <span style={{ fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-primary)' }}>€{invoice.amount.toLocaleString()}</span>
+          <span style={{ fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-primary)' }}>€{total.toFixed(2)}</span>
         </div>
       </div>
 
@@ -76,35 +77,27 @@ export default function PortalInvoice() {
             <span style={{ fontWeight: 700, fontSize: '0.925rem', color: 'var(--text-primary)' }}>Pay now</span>
           </div>
 
-          {/* Stripe placeholder */}
-          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '16px', marginBottom: 16, opacity: 0.6 }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 8 }}>Card number</div>
-            <div style={{ background: 'var(--bg-secondary)', borderRadius: 6, height: 40, display: 'flex', alignItems: 'center', paddingLeft: 12, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              •••• •••• •••• ••••
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-              {['MM / YY', 'CVC'].map(placeholder => (
-                <div key={placeholder} style={{ background: 'var(--bg-secondary)', borderRadius: 6, height: 40, display: 'flex', alignItems: 'center', paddingLeft: 12, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  {placeholder}
-                </div>
-              ))}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '16px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              <Lock size={14} />
+              {paymentUrl ? 'You will be sent to the secure payment page configured by the freelancer.' : 'This invoice does not have a payment link connected yet. Message the freelancer for payment instructions.'}
             </div>
           </div>
 
-          <button onClick={handlePay} disabled={paying}
+          <button onClick={() => paymentUrl && window.open(paymentUrl, '_blank', 'noopener,noreferrer')} disabled={!paymentUrl}
             style={{
-              width: '100%', padding: '14px', borderRadius: 10, border: 'none', cursor: paying ? 'not-allowed' : 'pointer',
+              width: '100%', padding: '14px', borderRadius: 10, border: 'none', cursor: paymentUrl ? 'pointer' : 'not-allowed',
               background: freelancer.brand_color, color: 'white', fontWeight: 700, fontSize: '1rem',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              opacity: paying ? 0.7 : 1, transition: 'opacity 0.2s',
+              opacity: paymentUrl ? 1 : 0.5, transition: 'opacity 0.2s',
             }}>
-            {paying ? 'Processing…' : `Pay €${invoice.amount.toLocaleString()}`}
+            {paymentUrl ? <><ExternalLink size={15} /> Pay €{total.toFixed(2)}</> : 'Payment link not connected'}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 }}>
             <Shield size={12} color="var(--text-muted)" />
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Secured by Stripe · SSL encrypted · Stripe integration in Phase 1
+              Payments are processed outside Velora through the freelancer's connected payment link.
             </span>
           </div>
         </div>

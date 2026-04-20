@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2 } from 'lucide-react'
 import { useInvoiceStore, useClientStore, useNotificationStore } from '../../store'
+import { createPortalLink } from '../../lib/portal'
 
 const statusMeta = {
   paid: { label: 'Paid', icon: CheckCircle2, color: '#4ade80', bg: 'rgba(34,197,94,0.15)' },
@@ -14,7 +15,7 @@ const statusMeta = {
 function NewInvoiceModal({ onClose }) {
   const { addInvoice } = useInvoiceStore()
   const { clients } = useClientStore()
-  const [form, setForm] = useState({ client: '', clientId: null, project: '', amount: '', discount: 0, tax: 23, type: 'custom', due: '', recurring: false, interval: 'monthly', scheduled: false, send_date: '', notes: '' })
+  const [form, setForm] = useState({ client: '', clientId: null, project: '', amount: '', discount: 0, tax: 23, type: 'custom', due: '', recurring: false, interval: 'monthly', scheduled: false, send_date: '', notes: '', paymentUrl: '' })
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -58,6 +59,7 @@ function NewInvoiceModal({ onClose }) {
             <div><label className="label">Tax / IVA (%)</label><input className="input" type="number" min="0" max="100" value={form.tax} onChange={e => setForm(f=>({...f,tax:e.target.value}))} /></div>
           </div>
           <div><label className="label">Due date</label><input className="input" type="date" value={form.due} onChange={e => setForm(f=>({...f,due:e.target.value}))} /></div>
+          <div><label className="label">Payment link</label><input className="input" type="url" value={form.paymentUrl} onChange={e => setForm(f=>({...f,paymentUrl:e.target.value}))} placeholder="https://buy.stripe.com/..." /></div>
           <div><label className="label">Notes (optional)</label><input className="input" placeholder="Payment instructions, notes..." value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} /></div>
 
           <div className="card" style={{ padding: '14px', background: 'var(--bg-secondary)' }}>
@@ -122,6 +124,8 @@ export default function Invoices() {
   const { addNotification } = useNotificationStore()
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
+  const [portalUrl, setPortalUrl] = useState('')
+  const [portalError, setPortalError] = useState('')
 
   const filtered = filter === 'all' ? invoices : invoices.filter(i => i.status === filter)
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0)
@@ -136,6 +140,17 @@ export default function Invoices() {
   const computeNet = (inv) => {
     const discounted = inv.amount * (1 - (inv.discount || 0) / 100)
     return discounted * (1 + (inv.tax || 0) / 100)
+  }
+
+  const createInvoicePortalLink = async (inv) => {
+    setPortalError('')
+    setPortalUrl('')
+    try {
+      const link = await createPortalLink({ clientId: inv.clientId, projectId: inv.projectId || null, expiresInDays: 30 })
+      setPortalUrl(link.url)
+    } catch (error) {
+      setPortalError(error.message || 'Could not create a portal link.')
+    }
   }
 
   return (
@@ -223,6 +238,9 @@ export default function Invoices() {
                 {inv.status === 'draft' && (
                   <button onClick={() => sendNow(inv.id)} title="Send now" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fbbf24', padding: 2 }}><Send size={12} /></button>
                 )}
+                {inv.status !== 'draft' && (
+                  <button onClick={() => createInvoicePortalLink(inv)} title="Create portal link" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}><Send size={12} /></button>
+                )}
                 <button onClick={() => deleteInvoice(inv.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                   onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={12} /></button>
@@ -232,6 +250,19 @@ export default function Invoices() {
         })}
         {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No invoices found</div>}
       </motion.div>
+
+      {(portalUrl || portalError) && (
+        <div className="card" style={{ marginTop: 16, padding: 16 }}>
+          {portalError ? (
+            <div className="badge badge-red" style={{ padding: '8px 12px', borderRadius: 8 }}>{portalError}</div>
+          ) : (
+            <>
+              <label className="label">Invoice portal link</label>
+              <input className="input" readOnly value={portalUrl} onFocus={e => e.currentTarget.select()} style={{ marginTop: 8, fontSize: '0.78rem' }} />
+            </>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: 16, padding: '12px 16px', background: '#a9825208', border: '1px solid #a9825220', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Repeat size={15} color="#9a7850" />

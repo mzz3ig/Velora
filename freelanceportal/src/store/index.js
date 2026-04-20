@@ -66,6 +66,33 @@ export const useInvoiceStore = create(
   )
 )
 
+// ─── PROPOSALS ─────────────────────────────────────────────────────────────
+export const useProposalStore = create(
+  persist(
+    (set) => ({
+      proposals: [],
+      addProposal: (proposal) => set(s => ({ proposals: [{ ...proposal, id: String(Date.now()), createdAt: new Date().toISOString(), status: proposal.status || 'sent' }, ...s.proposals] })),
+      updateProposal: (id, data) => set(s => ({ proposals: s.proposals.map(p => String(p.id) === String(id) ? { ...p, ...data } : p) })),
+      deleteProposal: (id) => set(s => ({ proposals: s.proposals.filter(p => String(p.id) !== String(id)) })),
+    }),
+    { name: 'velora-proposals', storage: dbStorage, version: 1, migrate: () => ({ proposals: [] }) }
+  )
+)
+
+// ─── CONTRACTS ─────────────────────────────────────────────────────────────
+export const useContractStore = create(
+  persist(
+    (set) => ({
+      contracts: [],
+      addContract: (contract) => set(s => ({ contracts: [{ ...contract, id: String(Date.now()), createdAt: new Date().toISOString() }, ...s.contracts] })),
+      updateContract: (id, data) => set(s => ({ contracts: s.contracts.map(c => String(c.id) === String(id) ? { ...c, ...data } : c) })),
+      markSigned: (id, data = {}) => set(s => ({ contracts: s.contracts.map(c => String(c.id) === String(id) ? { ...c, status: 'signed', signed_at: new Date().toISOString(), ...data } : c) })),
+      deleteContract: (id) => set(s => ({ contracts: s.contracts.filter(c => String(c.id) !== String(id)) })),
+    }),
+    { name: 'velora-contracts', storage: dbStorage, version: 1, migrate: () => ({ contracts: [] }) }
+  )
+)
+
 // ─── TASKS ─────────────────────────────────────────────────────────────────
 export const useTaskStore = create(
   persist(
@@ -263,6 +290,8 @@ const persistedStores = [
   { name: 'velora-clients', store: useClientStore },
   { name: 'velora-projects', store: useProjectStore },
   { name: 'velora-invoices', store: useInvoiceStore },
+  { name: 'velora-proposals', store: useProposalStore },
+  { name: 'velora-contracts', store: useContractStore },
   { name: 'velora-tasks', store: useTaskStore },
   { name: 'velora-time', store: useTimeStore },
   { name: 'velora-pipeline', store: usePipelineStore },

@@ -1,28 +1,10 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
 import {
   LayoutDashboard, FileText, ScrollText, CreditCard,
-  FolderOpen, MessageSquare, Zap,
+  FolderOpen, MessageSquare, Zap, AlertCircle,
 } from 'lucide-react'
-
-// Simulates what would be decoded from a JWT magic link token
-// In Phase 1: GET /api/portal/verify?token=JWT → returns freelancer + client data
-const MOCK_PORTAL_DATA = {
-  freelancer: {
-    name: 'Rodrigo Mendes Studio',
-    email: 'rodrigo@example.com',
-    brand_color: '#a98252',
-    logo: null,
-  },
-  client: {
-    name: 'Acme Corporation',
-    contact: 'John Smith',
-  },
-  project: {
-    name: 'Webflow Redesign',
-    status: 'In Progress',
-  },
-}
+import { getPortalTokenFromUrl, loadPortalPayload } from '../../lib/portal'
 
 const NAV_ITEMS = [
   { path: '/portal/overview', icon: LayoutDashboard, label: 'Overview' },
@@ -35,8 +17,59 @@ const NAV_ITEMS = [
 
 export default function PortalLayout() {
   const location = useLocation()
-  const { freelancer, client, project } = MOCK_PORTAL_DATA
-  const brandColor = freelancer.brand_color
+  const token = useMemo(() => getPortalTokenFromUrl(location.search), [location.search])
+  const [payload, setPayload] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    async function load() {
+      setLoading(true)
+      setError('')
+
+      try {
+        if (!token) {
+          setError('This portal link is missing its access token.')
+          setPayload(null)
+          return
+        }
+
+        const data = await loadPortalPayload(token)
+        if (!mounted) return
+
+        if (data?.error) {
+          setError(data.error === 'invalid_or_expired'
+            ? 'This portal link is invalid or has expired.'
+            : 'This portal link could not be opened.')
+          setPayload(null)
+          return
+        }
+
+        setPayload(data)
+      } catch (err) {
+        if (!mounted) return
+        setError(err.message || 'Unable to load this portal.')
+        setPayload(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { mounted = false }
+  }, [token])
+
+  const updatePayload = (nextPayload) => {
+    if (nextPayload && !nextPayload.error) setPayload(nextPayload)
+  }
+
+  const freelancer = payload?.freelancer || {}
+  const client = payload?.client || {}
+  const project = payload?.project || {}
+  const brandColor = freelancer.brand_color || '#a98252'
+  const query = token ? `?token=${encodeURIComponent(token)}` : ''
 
   return (
     <div className="portal-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -57,21 +90,39 @@ export default function PortalLayout() {
             </div>
           )}
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{freelancer.name}</div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{freelancer.name || 'Client portal'}</div>
           </div>
         </div>
         <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-          {client.contact} · {project.name}
+          {[client.name, project.name].filter(Boolean).join(' · ')}
         </div>
       </header>
 
+      {loading || error ? (
+        <main className="portal-main" style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 32 }}>
+          <div className="card" style={{ maxWidth: 460, textAlign: 'center' }}>
+            {loading ? (
+              <>
+                <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 8 }}>Opening portal</div>
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>Checking your secure link...</p>
+              </>
+            ) : (
+              <>
+                <AlertCircle size={34} color="#f87171" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 8 }}>Portal unavailable</div>
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>{error}</p>
+              </>
+            )}
+          </div>
+        </main>
+      ) : (
       <div style={{ display: 'flex', flex: 1 }}>
         {/* Sidebar nav */}
         <nav className="glass portal-chrome" style={{ width: 200, borderRight: '1px solid var(--border)', padding: '20px 8px', flexShrink: 0 }}>
           {NAV_ITEMS.map(item => {
             const active = location.pathname === item.path
             return (
-              <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
+              <Link key={item.path} to={`${item.path}${query}`} style={{ textDecoration: 'none' }}>
                 <div className={`portal-nav-item${active ? ' active' : ''}`} style={{
                   color: active ? brandColor : 'var(--text-secondary)',
                   borderLeft: active ? `3px solid ${brandColor}` : '3px solid transparent',
@@ -86,14 +137,15 @@ export default function PortalLayout() {
 
         {/* Content */}
         <main className="portal-main" style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
-          <Outlet context={{ freelancer, client, project }} />
+          <Outlet context={{ token, portal: payload, setPortal: updatePayload, freelancer, client, project }} />
         </main>
       </div>
+      )}
 
       {/* Footer */}
       <footer className="glass portal-chrome" style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Powered by Velora · {freelancer.name}
+          Powered by Velora{freelancer.name ? ` · ${freelancer.name}` : ''}
         </span>
       </footer>
     </div>

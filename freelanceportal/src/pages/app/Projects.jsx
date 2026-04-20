@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Calendar, CheckCircle2, Circle, X, Briefcase, Trash2 } from 'lucide-react'
+import { Plus, Search, Calendar, CheckCircle2, Circle, X, Briefcase, Trash2, Link as LinkIcon, Copy } from 'lucide-react'
 import { useProjectStore, useClientStore } from '../../store'
+import { createPortalLink } from '../../lib/portal'
 
 const statusMeta = {
   active: { label: 'In Progress', color: '#a98252', bg: 'rgba(169,130,82,0.15)' },
@@ -15,6 +16,10 @@ function ProjectDetail({ project, onClose }) {
   const [editMode, setEditMode] = useState(false)
   const [newMilestone, setNewMilestone] = useState('')
   const [form, setForm] = useState({ name: project.name, description: project.description, status: project.status, deadline: project.deadline, startDate: project.startDate })
+  const [portalUrl, setPortalUrl] = useState('')
+  const [portalError, setPortalError] = useState('')
+  const [creatingPortal, setCreatingPortal] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const s = statusMeta[project.onRender?.status || project.status] || statusMeta.active
 
@@ -30,6 +35,26 @@ function ProjectDetail({ project, onClose }) {
     const milestones = [...project.milestones, { id: Date.now(), title: newMilestone, done: false }]
     updateProject(project.id, { milestones })
     setNewMilestone('')
+  }
+
+  const createLink = async () => {
+    setCreatingPortal(true)
+    setPortalError('')
+    setCopied(false)
+    try {
+      const link = await createPortalLink({ clientId: project.clientId, projectId: project.id, expiresInDays: 30 })
+      setPortalUrl(link.url)
+    } catch (error) {
+      setPortalError(error.message || 'Could not create a portal link.')
+    } finally {
+      setCreatingPortal(false)
+    }
+  }
+
+  const copyLink = async () => {
+    if (!portalUrl) return
+    await navigator.clipboard.writeText(portalUrl)
+    setCopied(true)
   }
 
   return (
@@ -92,6 +117,31 @@ function ProjectDetail({ project, onClose }) {
           <div style={{ height: 6, background: 'var(--border-light)', borderRadius: 999 }}>
             <div style={{ height: '100%', borderRadius: 999, width: `${project.progress}%`, background: 'linear-gradient(90deg, var(--accent), #bca57d)', transition: 'width 0.4s' }} />
           </div>
+        </div>
+
+        <div className="card" style={{ padding: 16, marginBottom: 24, background: 'rgba(255,255,255,0.48)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: portalUrl || portalError ? 12 : 0 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                <LinkIcon size={15} /> Client portal link
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Creates a secure 30-day magic link scoped to this client and project.
+              </div>
+            </div>
+            <button onClick={createLink} disabled={creatingPortal} className="btn-secondary btn-sm">
+              {creatingPortal ? 'Creating...' : 'Create link'}
+            </button>
+          </div>
+          {portalUrl && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="input" readOnly value={portalUrl} style={{ fontSize: '0.78rem' }} />
+              <button onClick={copyLink} className="btn-primary btn-sm" style={{ flexShrink: 0 }}>
+                <Copy size={13} /> {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          )}
+          {portalError && <div className="badge badge-red" style={{ padding: '7px 10px', borderRadius: 8 }}>{portalError}</div>}
         </div>
 
         <div>

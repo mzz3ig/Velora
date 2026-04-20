@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 
 import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
@@ -50,6 +50,11 @@ import PortalInvoice from './pages/portal/PortalInvoice'
 import PortalFiles from './pages/portal/PortalFiles'
 import PortalMessages from './pages/portal/PortalMessages'
 
+function PortalIndexRedirect() {
+  const location = useLocation()
+  return <Navigate to={`/portal/overview${location.search}`} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -61,7 +66,7 @@ export default function App() {
 
         {/* Client Portal — public, no auth, magic link (JWT in Phase 1) */}
         <Route path="/portal" element={<PortalLayout />}>
-          <Route index element={<Navigate to="/portal/overview" replace />} />
+          <Route index element={<PortalIndexRedirect />} />
           <Route path="overview" element={<PortalOverview />} />
           <Route path="proposal" element={<PortalProposal />} />
           <Route path="contract" element={<PortalContract />} />
