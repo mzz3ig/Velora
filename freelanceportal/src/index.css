@@ -42,6 +42,16 @@
   --radius-xl: 8px;
 }
 
+html.perf-low {
+  scroll-behavior: auto;
+  --blur: none;
+  --bg-secondary: rgba(245, 249, 255, 0.96);
+  --bg-tertiary: rgba(239, 245, 255, 0.98);
+  --surface: rgba(255, 255, 255, 0.92);
+  --glass: rgba(255, 255, 255, 0.92);
+  --glass-strong: rgba(255, 255, 255, 0.96);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -61,6 +71,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.perf-low body { background-attachment: scroll; }
+
 #root { width: 100%; min-height: 100vh; }
 
 body::before {
@@ -78,6 +90,8 @@ body::before {
   background-size: 72px 72px, 72px 72px, 100% 100%, 160% 160%, 150% 150%;
   opacity: 1;
 }
+
+html.perf-low body::before { display: none; }
 
 .workspace-shell,
 .portal-shell {
@@ -114,6 +128,13 @@ body::before {
   pointer-events: none;
   position: absolute;
   z-index: -1;
+}
+
+html.perf-low .workspace-shell::before,
+html.perf-low .portal-shell::before,
+html.perf-low .workspace-shell::after,
+html.perf-low .portal-shell::after {
+  display: none;
 }
 
 .workspace-main,
@@ -240,6 +261,23 @@ a,
   opacity: 0.62;
   transform: translate3d(-8%, -8%, 0);
   transition: transform 0.56s var(--ease-apple), opacity 0.42s var(--ease-apple);
+}
+
+html.perf-low .card::before,
+html.perf-low .stat-card::before,
+html.perf-low .panel-soft::before,
+html.perf-low .glass::before,
+html.perf-low .btn-secondary::before,
+html.perf-low .btn-ghost::before,
+html.perf-low .nav-item.active::before,
+html.perf-low .card::after,
+html.perf-low .stat-card::after,
+html.perf-low .panel-soft::after,
+html.perf-low .glass::after,
+html.perf-low .btn-secondary::after,
+html.perf-low .btn-ghost::after,
+html.perf-low .nav-item.active::after {
+  display: none;
 }
 
 .card > *,
