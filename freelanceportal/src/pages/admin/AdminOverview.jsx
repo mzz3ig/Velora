@@ -81,11 +81,16 @@ export default function AdminOverview() {
             <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{adminEmail}</span>
           </p>
         </div>
-        <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a href="/" className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+            Home
+          </a>
+          <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
+            Refresh
+          </button>
+        </div>
       </motion.div>
 
       {loading ? (

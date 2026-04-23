@@ -83,11 +83,12 @@ function NotificationPanel({ onClose }) {
       initial={{ opacity: 0, x: -8, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -8, scale: 0.97 }}
-      className="glass"
       style={{
-        position: 'fixed', left: 252, top: 80, width: 320, zIndex: 100,
+        position: 'fixed', left: 252, top: 80, width: 340, zIndex: 100,
         borderRadius: 12, overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        background: '#1a1a2e',
+        border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
@@ -112,11 +113,11 @@ function NotificationPanel({ onClose }) {
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 18px',
                 borderBottom: i < notifications.length - 1 ? '1px solid var(--border)' : 'none',
-                background: n.read ? 'transparent' : 'rgba(169,130,82,0.05)',
+                background: n.read ? 'transparent' : 'rgba(99,102,241,0.06)',
                 cursor: 'pointer', transition: 'background 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
-              onMouseLeave={e => e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(169,130,82,0.05)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseLeave={e => e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(99,102,241,0.06)'}
             >
               <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: `${meta.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
                 <meta.icon size={13} color={meta.color} />
