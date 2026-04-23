@@ -725,9 +725,9 @@ html.perf-low .nav-item.active::after {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
-  height: 56px;
+  height: 64px;
   object-fit: contain;
-  width: 212px;
+  width: 280px;
 }
 
 .auth-panel-wrap {
@@ -1076,8 +1076,8 @@ html.perf-low .nav-item.active::after {
   }
 
   .auth-brand-wordmark {
-    height: 48px;
-    width: 178px;
+    height: 52px;
+    width: 228px;
   }
 
   .auth-topbar-actions {
