@@ -6,6 +6,7 @@
     { "source": "/health", "destination": "/api/index.js" },
     { "source": "/admin/(.*)", "destination": "/api/index.js" },
     { "source": "/stripe/(.*)", "destination": "/api/index.js" },
+    { "source": "/storage/(.*)", "destination": "/api/index.js" },
     { "source": "/portal/(.*)", "destination": "/api/index.js" },
     { "source": "/public/(.*)", "destination": "/api/index.js" },
     {

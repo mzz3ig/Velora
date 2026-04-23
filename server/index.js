@@ -5,6 +5,7 @@ const stripeRouter = require('./routes/stripe')
 const portalRouter = require('./routes/portal')
 const adminRouter = require('./routes/admin')
 const publicRouter = require('./routes/public')
+const storageRouter = require('./routes/storage')
 const { missingEnv } = require('./lib/env')
 const { toPublicMessage } = require('./lib/httpError')
 const { getSupabaseAdmin } = require('./lib/supabase')
@@ -46,6 +47,7 @@ app.use(cors({
 // (webhook needs raw body for Stripe signature verification)
 app.use((req, res, next) => {
   if (req.path === '/stripe/webhook') return next()
+  if (req.path === '/storage/upload') return next()
   express.json()(req, res, next)
 })
 
@@ -89,6 +91,7 @@ app.get('/health', async (req, res) => {
 
 // Stripe routes
 app.use('/stripe', stripeRouter)
+app.use('/storage', storageRouter)
 app.use('/portal', portalRouter)
 app.use('/admin', adminRouter)
 app.use('/public', publicRouter)

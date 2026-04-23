@@ -3,6 +3,7 @@ const router = express.Router()
 const { getSupabaseAdmin } = require('../lib/supabase')
 const { createRateLimiter } = require('../lib/rateLimit')
 const { HttpError } = require('../lib/httpError')
+const { BUCKET, ensureBucketExists } = require('../lib/storageBucket')
 
 const portalRateLimit = createRateLimiter({
   name: 'portal-file',
@@ -101,9 +102,11 @@ router.get('/file', portalRateLimit, async (req, res, next) => {
       return res.status(403).json({ error: 'File is not available through this portal' })
     }
 
+    await ensureBucketExists()
+
     const { data, error: signedError } = await supabase
       .storage
-      .from('velora-files')
+      .from(BUCKET)
       .createSignedUrl(path, 300)
 
     if (signedError) throw new HttpError(500, 'Could not open this file', { cause: signedError })

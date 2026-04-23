@@ -98,7 +98,7 @@ export default function Files() {
     for (const f of fileList) {
       const ext = f.name.split('.').pop().toLowerCase()
       try {
-        const { path } = await uploadFile(f, user.id)
+        const { path } = await uploadFile(f)
         addFile({
           name: f.name,
           size: f.size,
