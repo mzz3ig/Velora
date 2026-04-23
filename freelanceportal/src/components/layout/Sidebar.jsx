@@ -167,11 +167,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'visible' }}>
             <img
-              src={collapsed ? '/velora-logo.png' : '/logo.png'}
+              src={collapsed ? '/velora-logo.png' : '/velora-logo-wordmark.png'}
               alt="Velora"
               style={collapsed
-                ? { width: 58, height: 58, borderRadius: 10, flexShrink: 0, objectFit: 'contain' }
-                : { width: 186, height: 48, flexShrink: 0, objectFit: 'contain' }}
+                ? { width: 62, height: 62, borderRadius: 10, flexShrink: 0, objectFit: 'contain' }
+                : { width: 204, height: 52, flexShrink: 0, objectFit: 'contain' }}
             />
           </div>
           {!collapsed && (

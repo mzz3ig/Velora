@@ -156,7 +156,7 @@ export default function Onboarding() {
       <main className="auth-panel-wrap onboarding-wrap">
         <div className="auth-topbar onboarding-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/logo.png" alt="Velora" className="auth-brand-wordmark" />
+            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <span className="onboarding-step-count">{step + 1} of {questions.length}</span>
         </div>

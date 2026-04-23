@@ -53,7 +53,7 @@ export default function Login() {
       >
         <div className="auth-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/logo.png" alt="Velora" className="auth-brand-wordmark" />
+            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <div className="auth-topbar-actions">
             <Link to="/" className="auth-home-link"><Home size={15} /> Home</Link>
