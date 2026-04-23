@@ -1,19 +1,20 @@
 export default function VeloraLoader({
   label = 'Loading',
   words = ['tasks', 'projects', 'files', 'invoices', 'tasks'],
-  size = 18,
+  size = 22,
   className = '',
   style = {},
   surface = false,
 }) {
   const items = (words && words.length > 0) ? words : ['loading', 'loading', 'loading', 'loading', 'loading']
   const readableLabel = (label && String(label).trim()) ? label : 'Loading'
+  const scaledSize = Math.round(size * 1.18)
   const content = (
     <div
       className={`velora-loader${className ? ` ${className}` : ''}`}
       role="status"
       aria-live="polite"
-      style={{ '--velora-loader-font-size': `${size}px`, ...style }}
+      style={{ '--velora-loader-font-size': `${scaledSize}px`, ...style }}
     >
       {label ? <span className="velora-loader__label">{label}</span> : null}
       <span className="velora-loader__words" aria-hidden="true">

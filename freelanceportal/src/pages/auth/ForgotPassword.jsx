@@ -28,7 +28,7 @@ export default function ForgotPassword() {
       <motion.main className="auth-panel-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.05 }}>
         <div className="auth-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
+            <img src="/logo.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <div className="auth-topbar-actions">
             <Link to="/" className="auth-home-link"><Home size={15} /> Home</Link>

@@ -40,7 +40,7 @@ export default function AppShell() {
               <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <img src="/velora-logo.png" alt="Velora" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain' }} />
+          <img src="/velora-logo.png" alt="Velora" style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'contain' }} />
           <div style={{ width: 36 }} />
         </div>
         <Outlet />

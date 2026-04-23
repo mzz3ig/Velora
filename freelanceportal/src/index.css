@@ -444,17 +444,17 @@ html.perf-low .nav-item.active::after {
 
 /* ─── Loaders ─────────────────────────────────────── */
 .velora-loader-surface {
-  background: var(--surface-elevated);
-  border: 1px solid rgba(255,255,255,0.86);
-  box-shadow: var(--glass-shadow), var(--glass-inset);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   border-radius: var(--radius-lg);
-  padding: 14px 18px;
+  padding: 6px 8px;
 }
 
 .velora-loader {
-  --velora-loader-bg: var(--surface-elevated);
+  --velora-loader-bg: transparent;
   --velora-loader-accent: var(--accent-hover);
-  --velora-loader-font-size: 18px;
+  --velora-loader-font-size: 22px;
 
   color: var(--text-muted);
   font-weight: 600;
@@ -725,9 +725,9 @@ html.perf-low .nav-item.active::after {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
-  height: 38px;
+  height: 52px;
   object-fit: contain;
-  width: 138px;
+  width: 196px;
 }
 
 .auth-panel-wrap {
@@ -1076,8 +1076,8 @@ html.perf-low .nav-item.active::after {
   }
 
   .auth-brand-wordmark {
-    height: 34px;
-    width: 122px;
+    height: 44px;
+    width: 166px;
   }
 
   .auth-topbar-actions {

@@ -65,7 +65,7 @@ export default function Navbar() {
     >
       {/* Logo */}
       <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
-        <img src="/velora-logo-wordmark.png" alt="Velora" style={{ width: 142, height: 36, objectFit: 'contain' }} />
+        <img src="/logo.png" alt="Velora" style={{ width: 190, height: 50, objectFit: 'contain' }} />
       </Link>
 
       {/* Nav links - desktop */}
