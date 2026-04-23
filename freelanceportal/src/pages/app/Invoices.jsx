@@ -32,7 +32,7 @@ function NewInvoiceModal({ onClose }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
       onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="card" style={{ width: '100%', maxWidth: 520, padding: 32, maxHeight: '92vh', overflowY: 'auto' }}
+        className="card modal-surface" style={{ width: '100%', maxWidth: 520, padding: 32, maxHeight: '92vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>New Invoice</h2>

@@ -109,7 +109,7 @@ function SignatureCanvas({ onSave, onClose }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="card" style={{ width: '100%', maxWidth: 520, padding: 28 }}>
+        className="card modal-surface" style={{ width: '100%', maxWidth: 520, padding: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Add your signature</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
@@ -210,7 +210,7 @@ function NewContractModal({ onClose, onAdd }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', zIndex: 1000, padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="card" style={{ width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', padding: 32 }}
+        className="card modal-surface" style={{ width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', padding: 32 }}
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>New Contract</h2>
@@ -305,7 +305,7 @@ function SignContractModal({ contract, onSign, onClose }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', zIndex: 1000, padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="card" style={{ width: '100%', maxWidth: 560, padding: 28 }}
+        className="card modal-surface" style={{ width: '100%', maxWidth: 560, padding: 28 }}
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Sign contract — {contract.project}</h2>

@@ -417,6 +417,19 @@ html.perf-low .nav-item.active::after {
   -webkit-backdrop-filter: var(--blur);
 }
 
+.card.modal-surface {
+  background: var(--surface-elevated);
+  border-color: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.card.modal-surface::before,
+.card.modal-surface::after {
+  display: none;
+}
+
 .card-hover {
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
