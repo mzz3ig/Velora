@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, ClipboardList } from 'lucide-react'
+import VeloraLoader from '../components/ui/VeloraLoader'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
@@ -141,7 +142,9 @@ export default function PublicForm() {
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--bg-primary)' }}>
       <section className="card" style={{ width: '100%', maxWidth: 640, padding: 28 }}>
         {loading ? (
-          <div style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Loading form...</div>
+          <div style={{ display: 'grid', placeItems: 'center', padding: 24 }}>
+            <VeloraLoader size={16} words={['form', 'fields', 'response', 'almost', 'form']} />
+          </div>
         ) : submitted ? (
           <div style={{ textAlign: 'center', padding: '24px 0' }}>
             <CheckCircle2 size={42} color="#22c55e" style={{ margin: '0 auto 12px' }} />

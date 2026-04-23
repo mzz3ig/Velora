@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileText, Image, Film, Archive, Download, Trash2, FolderOpen, Search, X, Folder, Eye, Loader2, AlertCircle } from 'lucide-react'
+import { Upload, FileText, Image, Film, Archive, Download, Trash2, FolderOpen, Search, X, Folder, Eye, AlertCircle } from 'lucide-react'
 import { useFileStore } from '../../store'
 import { uploadFile, deleteStorageFile, getSignedUrl } from '../../lib/storage'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const fileTypeMap = {
   pdf: { icon: FileText, color: '#f87171' },
@@ -187,7 +188,7 @@ export default function Files() {
             </div>
           </div>
           <button onClick={() => inputRef.current.click()} className="btn-primary" style={{ padding: '9px 18px', fontSize: '0.875rem' }} disabled={uploading}>
-            {uploading ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Uploading…</> : <><Upload size={15} /> Upload files</>}
+            {uploading ? <><VeloraLoader size={13} label={null} words={['.', '..', '...', '....', '.']} /> Uploading…</> : <><Upload size={15} /> Upload files</>}
           </button>
           <input ref={inputRef} type="file" multiple style={{ display: 'none' }} onChange={e => { processFiles([...e.target.files]); e.target.value = '' }} />
         </div>
@@ -227,8 +228,12 @@ export default function Files() {
         style={{ border: '2px dashed var(--border-light)', borderRadius: 8, padding: '28px', textAlign: 'center', marginBottom: 24, cursor: uploading ? 'wait' : 'pointer', transition: 'all 0.2s' }}
         onClick={() => !uploading && inputRef.current.click()}>
         {uploading ? (
-          <><Loader2 size={24} color="var(--accent)" style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
-          <p style={{ fontSize: '0.875rem', color: 'var(--accent)' }}>Uploading to Supabase Storage…</p></>
+          <>
+            <div style={{ display: 'grid', placeItems: 'center', marginBottom: 8 }}>
+              <VeloraLoader size={16} label="Uploading" words={['storage', 'files', 'images', 'almost', 'storage']} />
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--accent)' }}>Uploading to Supabase Storage…</p>
+          </>
         ) : (
           <><Upload size={24} color={dragging ? 'var(--accent)' : 'var(--text-muted)'} style={{ margin: '0 auto 8px' }} />
           <p style={{ fontSize: '0.875rem', color: dragging ? 'var(--accent)' : 'var(--text-muted)' }}>
@@ -309,7 +314,6 @@ export default function Files() {
         {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
       </AnimatePresence>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

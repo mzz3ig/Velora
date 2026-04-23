@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, CheckCircle2, Clock, Database, Globe, RefreshCw, XCircle } from 'lucide-react'
 import { adminMe, adminStateSample } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 function HealthRow({ label, status, detail, latency, delay }) {
   const tone = status === 'ok' ? '#22c55e' : status === 'error' ? '#f87171' : '#f59e0b'
@@ -17,7 +18,7 @@ function HealthRow({ label, status, detail, latency, delay }) {
       <div style={{ flexShrink: 0 }}>
         {status === 'ok' && <CheckCircle2 size={16} color={tone} />}
         {status === 'error' && <XCircle size={16} color={tone} />}
-        {status === 'loading' && <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: tone, animation: 'spin 0.8s linear infinite' }} />}
+        {status === 'loading' && <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} style={{ '--velora-loader-accent': tone }} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 700 }}>{label}</div>
@@ -139,8 +140,6 @@ export default function AdminHealth() {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100 }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
@@ -151,7 +150,7 @@ export default function AdminHealth() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>Live checks for admin auth, Supabase, and platform state access.</p>
         </div>
         <button onClick={runChecks} disabled={refreshing} className="btn-secondary btn-sm">
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Re-run checks
         </button>
       </motion.div>

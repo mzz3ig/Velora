@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { rehydrateAppStores } from '../../store'
 import { isAdminEmail } from '../../lib/admin'
+import VeloraLoader from '../ui/VeloraLoader'
 
 export default function ProtectedRoute() {
   const [session, setSession] = useState(null)
@@ -85,7 +86,7 @@ export default function ProtectedRoute() {
   if (loading || (session && onboardingComplete === null)) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}>
-        Loading...
+        <VeloraLoader surface size={18} words={['session', 'workspace', 'projects', 'tasks', 'session']} />
       </div>
     )
   }

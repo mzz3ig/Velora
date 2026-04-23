@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Home, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 export default function ResetPassword() {
   const { register, handleSubmit, getValues, formState: { errors } } = useForm()
@@ -26,8 +27,7 @@ export default function ResetPassword() {
       <motion.main className="auth-panel-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.05 }}>
         <div className="auth-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/velora-logo.png" alt="" className="auth-brand-logo" />
-            <span>Velora</span>
+            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <div className="auth-topbar-actions">
             <Link to="/" className="auth-home-link"><Home size={15} /> Home</Link>
@@ -63,7 +63,7 @@ export default function ResetPassword() {
               {errors.confirm && <p className="auth-error">{errors.confirm.message}</p>}
             </div>
             <button type="submit" disabled={loading} className="btn-primary auth-submit">
-              {loading ? 'Updating…' : 'Update password'}
+              {loading ? <><VeloraLoader size={13} label={null} words={['.', '..', '...', '....', '.']} /> Updating…</> : 'Update password'}
             </button>
           </form>
         </section>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, RefreshCw, Users, Activity, Database } from 'lucide-react'
 import { adminStateRows } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 function Bar({ label, value, max, color }) {
   return (
@@ -90,7 +91,7 @@ export default function AdminAnalytics() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  if (loading) return <div style={{ padding: '32px', color: 'var(--text-muted)' }}>Loading analytics…</div>
+  if (loading) return <div style={{ padding: 32 }}><VeloraLoader size={16} words={['analytics', 'cohorts', 'activity', 'stores', 'analytics']} /></div>
   if (data?.error) return <div style={{ padding: '32px' }}><span className="badge badge-red">{data.error}</span></div>
 
   const maxStore = Math.max(...Object.values(data.storeCount), 1)
@@ -114,7 +115,7 @@ export default function AdminAnalytics() {
         </div>
         <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Refresh
         </button>
       </motion.div>
@@ -174,8 +175,6 @@ export default function AdminAnalytics() {
           })}
         </div>
       </Card>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

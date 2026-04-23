@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2, FileDown, ExternalLink, Loader2 } from 'lucide-react'
+import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2, FileDown, ExternalLink } from 'lucide-react'
 import { useInvoiceStore, useClientStore, useNotificationStore, useSettingsStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
 import { generateInvoicePDF } from '../../lib/pdf'
 import { createInvoiceCheckout } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const statusMeta = {
   paid: { label: 'Paid', icon: CheckCircle2, color: '#4ade80', bg: 'rgba(34,197,94,0.15)' },
@@ -291,7 +292,7 @@ export default function Invoices() {
                     style={{ background: 'none', border: 'none', cursor: checkoutLoading === inv.id ? 'wait' : 'pointer', color: '#a98252', padding: 2 }}
                     onMouseEnter={e => { if (checkoutLoading !== inv.id) e.currentTarget.style.color = '#bca57d' }}
                     onMouseLeave={e => e.currentTarget.style.color = '#a98252'}>
-                    {checkoutLoading === inv.id ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={12} />}
+                    {checkoutLoading === inv.id ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <CreditCard size={12} />}
                   </button>
                 )}
                 {inv.status !== 'draft' && (
@@ -327,7 +328,6 @@ export default function Invoices() {
       <AnimatePresence>
         {showModal && <NewInvoiceModal onClose={() => setShowModal(false)} />}
       </AnimatePresence>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

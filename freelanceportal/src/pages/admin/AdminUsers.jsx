@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Users, RefreshCw, Activity, Database } from 'lucide-react'
 import { adminStateRows } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -49,7 +50,7 @@ export default function AdminUsers() {
         </div>
         <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Refresh
         </button>
       </motion.div>
@@ -75,7 +76,9 @@ export default function AdminUsers() {
       </div>
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', padding: 20 }}>Loading…</div>
+        <div style={{ padding: 20 }}>
+          <VeloraLoader size={15} words={['accounts', 'stores', 'activity', 'syncing', 'accounts']} />
+        </div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
           className="panel-soft" style={{ overflow: 'hidden' }}>
@@ -114,8 +117,6 @@ export default function AdminUsers() {
           </table>
         </motion.div>
       )}
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

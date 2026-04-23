@@ -5,6 +5,7 @@ import {
   FolderOpen, MessageSquare, Zap, AlertCircle,
 } from 'lucide-react'
 import { getPortalTokenFromUrl, loadPortalPayload } from '../../lib/portal'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const NAV_ITEMS = [
   { path: '/portal/overview', icon: LayoutDashboard, label: 'Overview' },
@@ -105,6 +106,9 @@ export default function PortalLayout() {
               <>
                 <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 8 }}>Opening portal</div>
                 <p style={{ color: 'var(--text-muted)', margin: 0 }}>Checking your secure link...</p>
+                <div style={{ display: 'grid', placeItems: 'center', marginTop: 16 }}>
+                  <VeloraLoader size={15} words={['secure link', 'project', 'files', 'messages', 'secure link']} />
+                </div>
               </>
             ) : (
               <>

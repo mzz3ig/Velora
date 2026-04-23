@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, LogOut, RefreshCw } from 'lucide-react'
+import { AlertTriangle, LogOut } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 function DangerAction({ title, description, buttonLabel, icon: Icon, onRun, delay }) {
   const [phase, setPhase] = useState('idle')
@@ -58,7 +59,7 @@ function DangerAction({ title, description, buttonLabel, icon: Icon, onRun, dela
 
       {phase === 'running' && (
         <div className="badge badge-yellow" style={{ marginTop: 10 }}>
-          <RefreshCw size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Running...
+          <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> Running...
         </div>
       )}
 
@@ -86,8 +87,6 @@ export default function AdminDanger() {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100 }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <AlertTriangle size={22} color="#f87171" />

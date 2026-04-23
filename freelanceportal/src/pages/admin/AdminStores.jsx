@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Layers, RefreshCw } from 'lucide-react'
 import { adminStateRows } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const KNOWN_STORES = [
   { key: 'velora-clients', label: 'Clients', color: '#47bfff' },
@@ -59,8 +60,6 @@ export default function AdminStores() {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100 }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
@@ -71,13 +70,15 @@ export default function AdminStores() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>Feature usage by store key presence. No user content is read.</p>
         </div>
         <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm">
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Refresh
         </button>
       </motion.div>
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', padding: 20 }}>Loading...</div>
+        <div style={{ padding: 20 }}>
+          <VeloraLoader size={15} words={['stores', 'features', 'usage', 'adoption', 'stores']} />
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           {KNOWN_STORES.map((store, index) => {

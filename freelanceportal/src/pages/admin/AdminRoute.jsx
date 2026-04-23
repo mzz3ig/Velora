@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { isAdminEmail } from '../../lib/admin'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 export default function AdminRoute() {
   const [status, setStatus] = useState('loading')
@@ -28,7 +29,7 @@ export default function AdminRoute() {
   if (status === 'loading') {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}>
-        Verifying admin access…
+        <VeloraLoader surface size={18} label="Verifying" words={['admin', 'access', 'session', 'secure', 'admin']} />
       </div>
     )
   }

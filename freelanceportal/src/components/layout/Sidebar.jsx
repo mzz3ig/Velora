@@ -166,13 +166,13 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           minHeight: 64,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'visible' }}>
-            <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, borderRadius: 8, flexShrink: 0, objectFit: 'contain' }} />
-            {!collapsed && (
-              <motion.span initial={false} animate={{ opacity: collapsed ? 0 : 1 }}
-                style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                Velora
-              </motion.span>
-            )}
+            <img
+              src={collapsed ? '/velora-logo.png' : '/velora-logo-wordmark.png'}
+              alt="Velora"
+              style={collapsed
+                ? { width: 48, height: 48, borderRadius: 8, flexShrink: 0, objectFit: 'contain' }
+                : { width: 138, height: 34, flexShrink: 0, objectFit: 'contain' }}
+            />
           </div>
           {!collapsed && (
             <button onClick={() => { setCollapsed(true); setMobileOpen && setMobileOpen(false) }}

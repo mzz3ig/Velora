@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const questions = [
   {
@@ -142,7 +143,9 @@ export default function Onboarding() {
     return (
       <div className="auth-page">
         <main className="auth-panel-wrap">
-          <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+          <div style={{ display: 'grid', placeItems: 'center', padding: 24 }}>
+            <VeloraLoader size={16} words={['setup', 'profile', 'workspace', 'almost', 'setup']} />
+          </div>
         </main>
       </div>
     )
@@ -153,8 +156,7 @@ export default function Onboarding() {
       <main className="auth-panel-wrap onboarding-wrap">
         <div className="auth-topbar onboarding-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/velora-logo.png" alt="" className="auth-brand-logo" />
-            <span>Velora</span>
+            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <span className="onboarding-step-count">{step + 1} of {questions.length}</span>
         </div>

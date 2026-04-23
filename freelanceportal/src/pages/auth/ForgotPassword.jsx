@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { ArrowLeft, Home, Mail, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 export default function ForgotPassword() {
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -27,8 +28,7 @@ export default function ForgotPassword() {
       <motion.main className="auth-panel-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.05 }}>
         <div className="auth-topbar">
           <Link to="/" className="auth-brand" aria-label="Velora home">
-            <img src="/velora-logo.png" alt="" className="auth-brand-logo" />
-            <span>Velora</span>
+            <img src="/velora-logo-wordmark.png" alt="Velora" className="auth-brand-wordmark" />
           </Link>
           <div className="auth-topbar-actions">
             <Link to="/" className="auth-home-link"><Home size={15} /> Home</Link>
@@ -68,7 +68,7 @@ export default function ForgotPassword() {
                 {errors.email && <p className="auth-error">Enter a valid email address.</p>}
               </div>
               <button type="submit" disabled={loading} className="btn-primary auth-submit">
-                {loading ? 'Sending…' : 'Send reset link'}
+                {loading ? <><VeloraLoader size={13} label={null} words={['.', '..', '...', '....', '.']} /> Sending…</> : 'Send reset link'}
               </button>
               <p className="auth-switch">
                 <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><ArrowLeft size={13} /> Back to sign in</Link>

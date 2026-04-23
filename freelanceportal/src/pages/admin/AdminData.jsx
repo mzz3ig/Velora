@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Database, RefreshCw, EyeOff } from 'lucide-react'
 import { adminStateRows } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const KEY_COLORS = {
   'velora-clients': '#47bfff', 'velora-invoices': '#22c55e', 'velora-projects': '#7e14ff',
@@ -47,7 +48,7 @@ export default function AdminData() {
         </div>
         <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Refresh
         </button>
       </motion.div>
@@ -68,7 +69,9 @@ export default function AdminData() {
       </div>
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', padding: 20 }}>Loading…</div>
+        <div style={{ padding: 20 }}>
+          <VeloraLoader size={15} words={['state', 'users', 'stores', 'updates', 'state']} />
+        </div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="panel-soft" style={{ overflow: 'hidden' }}>
@@ -105,8 +108,6 @@ export default function AdminData() {
           </table>
         </motion.div>
       )}
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

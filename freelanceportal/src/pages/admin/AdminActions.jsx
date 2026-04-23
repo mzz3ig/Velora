@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Download, Loader, Zap } from 'lucide-react'
+import { Check, Download, Zap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { adminMe, adminStateRows, adminStateSample } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 function ActionCard({ title, description, buttonLabel, onRun, delay }) {
   const [state, setState] = useState('idle')
@@ -26,7 +27,7 @@ function ActionCard({ title, description, buttonLabel, onRun, delay }) {
       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>{description}</div>
       <button onClick={run} disabled={state === 'running'} className="btn-secondary btn-sm">
         {state === 'running'
-          ? <><Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Running...</>
+          ? <><VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> Running...</>
           : <><Zap size={12} /> {buttonLabel}</>}
       </button>
       {result && (
@@ -109,8 +110,6 @@ export default function AdminActions() {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100 }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <Download size={22} color="var(--accent)" />

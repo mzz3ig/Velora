@@ -51,8 +51,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <img src="/velora-logo.png" alt="Velora" style={{ width: 48, height: 48, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Velora</span>
+              <img src="/velora-logo-wordmark.png" alt="Velora" style={{ width: 146, height: 38, objectFit: 'contain' }} />
             </div>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: 260 }}>
               The all-in-one client portal for solo freelancers. Send one link. Get paid faster.

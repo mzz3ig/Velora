@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Shield, Users, Activity, Database, TrendingUp, DollarSign, RefreshCw } from 'lucide-react'
 import { adminMe, adminStateRows } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 function StatCard({ icon: Icon, label, value, sub, color, delay = 0 }) {
   return (
@@ -82,13 +83,15 @@ export default function AdminOverview() {
         </div>
         <button onClick={load} disabled={refreshing} className="btn-secondary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          {refreshing ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <RefreshCw size={13} />}
           Refresh
         </button>
       </motion.div>
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', padding: 40 }}>Loading platform metrics…</div>
+        <div style={{ padding: 40 }}>
+          <VeloraLoader size={16} words={['metrics', 'accounts', 'stores', 'revenue', 'metrics']} />
+        </div>
       ) : metrics?.error ? (
         <div className="badge badge-red" style={{ padding: '10px 16px', borderRadius: 8 }}>Error: {metrics.error}</div>
       ) : (<>
@@ -153,7 +156,6 @@ export default function AdminOverview() {
         </motion.div>
       </>)}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

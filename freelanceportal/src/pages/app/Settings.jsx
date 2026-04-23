@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { User, Palette, Bell, CreditCard, Globe, Save, Check, Upload, X as XIcon, Settings as SettingsIcon, Loader2, ExternalLink } from 'lucide-react'
+import { User, Palette, Bell, CreditCard, Globe, Save, Check, Upload, X as XIcon, Settings as SettingsIcon, ExternalLink } from 'lucide-react'
 import { useSettingsStore } from '../../store'
 import { supabase } from '../../lib/supabase'
 import { createBillingPortal, createSubscriptionCheckout } from '../../lib/api'
+import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const tabs = [
   { id: 'branding', label: 'Branding', icon: Palette },
@@ -137,7 +138,7 @@ function BrandingTab() {
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
               >
-                {logoUploading ? <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Loading…</span> : <>
+                {logoUploading ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <>
                   <Upload size={16} color="var(--text-muted)" />
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Upload logo</span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PNG/SVG/JPG · max 2MB</span>
@@ -432,7 +433,7 @@ function BillingTab() {
         </div>
 
         <button onClick={openPortal} disabled={portalLoading} className="btn-ghost" style={{ padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          {portalLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ExternalLink size={14} />}
+          {portalLoading ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <ExternalLink size={14} />}
           Manage subscription & invoices
         </button>
       </div>
@@ -487,7 +488,7 @@ function BillingTab() {
                   className="btn-primary"
                   style={{ width: '100%', justifyContent: 'center', padding: '9px 14px', display: 'inline-flex', alignItems: 'center', gap: 8, background: meta.color, opacity: isCurrentPlan ? 0.55 : 1 }}
                 >
-                  {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                  {loading ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : null}
                   {isCurrentPlan ? 'Current plan' : billing?.stripeCustomerId ? 'Manage in portal' : 'Start free trial'}
                 </button>
               </div>
@@ -495,8 +496,6 @@ function BillingTab() {
           })}
         </div>
       </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
