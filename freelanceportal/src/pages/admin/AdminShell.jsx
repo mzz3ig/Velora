@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, BarChart3, Users, Database, Layers,
   Activity, Globe, Zap, AlertTriangle, Settings2,
-  Shield, ChevronLeft, LogOut, Layers as AppIcon,
+  Shield, ChevronLeft, LogOut, Home,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -156,7 +156,7 @@ export default function AdminShell() {
 
         {/* Bottom section */}
         <div style={{ borderTop: '1px solid var(--border)', padding: collapsed ? '10px 0' : '10px 10px' }}>
-          {/* Back to app */}
+          {/* Home */}
           <NavLink
             to="/"
             className="nav-item"
@@ -165,10 +165,10 @@ export default function AdminShell() {
               padding: collapsed ? '10px 0' : '9px 10px',
               marginBottom: 8, fontSize: '0.86rem', borderRadius: 8, gap: 10,
             }}
-            title={collapsed ? 'Back to app' : undefined}
+            title={collapsed ? 'Home' : undefined}
           >
-            <AppIcon size={17} style={{ flexShrink: 0 }} />
-            {!collapsed && <span style={{ fontWeight: 500 }}>Back to app</span>}
+            <Home size={17} style={{ flexShrink: 0 }} />
+            {!collapsed && <span style={{ fontWeight: 500 }}>Home</span>}
           </NavLink>
 
           {/* User card */}

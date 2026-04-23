@@ -68,11 +68,6 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{today} — Here's what's happening today.</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <Link to="/" style={{ textDecoration: 'none' }}>
-            <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.875rem' }}>
-              Home
-            </button>
-          </Link>
           <Link to="/app/projects" style={{ textDecoration: 'none' }}>
             <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.875rem' }}>
               <Plus size={15} /> New project

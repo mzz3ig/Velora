@@ -7,7 +7,7 @@ import {
   Settings, LogOut, ChevronRight, Clock, Receipt,
   Package, TrendingUp, ClipboardList, CalendarDays,
   BarChart2, Zap as ZapIcon, CheckSquare, Bell,
-  CheckCircle2, AlertCircle, X, ChevronLeft,
+  CheckCircle2, AlertCircle, X, ChevronLeft, Home,
 } from 'lucide-react'
 import { useNotificationStore, useSettingsStore } from '../../store'
 import { supabase } from '../../lib/supabase'
@@ -263,6 +263,22 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
         {/* Bottom section */}
         <div style={{ borderTop: '1px solid var(--border)', padding: collapsed ? '10px 0' : '10px 10px' }}>
+          {/* Home */}
+          <NavLink
+            to="/"
+            className="nav-item"
+            style={{
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              padding: collapsed ? '10px 0' : '9px 10px',
+              marginBottom: 2, fontSize: '0.86rem',
+              borderRadius: 8, gap: 10,
+            }}
+            title={collapsed ? 'Home' : undefined}
+          >
+            <Home size={17} style={{ flexShrink: 0 }} />
+            {!collapsed && <span style={{ fontWeight: 500 }}>Home</span>}
+          </NavLink>
+
           {/* Notifications */}
           <button
             onClick={() => setShowNotifs(v => !v)}
