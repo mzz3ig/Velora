@@ -77,26 +77,42 @@ export default function PortalLayout() {
       {/* Portal header — white-labeled */}
       <header className="glass portal-chrome" style={{
         borderBottom: '1px solid var(--border)',
-        padding: '0 24px', minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 10,
         backdropFilter: 'var(--blur)',
         WebkitBackdropFilter: 'var(--blur)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {freelancer.logo ? (
-            <img src={freelancer.logo} alt={freelancer.name} style={{ width: 48, height: 48, objectFit: 'contain' }} />
+            <img src={freelancer.logo} alt={freelancer.name} style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 8 }} />
           ) : (
-            <div style={{ width: 48, height: 48, borderRadius: 8, background: brandColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Zap size={24} color="white" />
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: `linear-gradient(135deg, ${brandColor}, ${brandColor}bb)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              boxShadow: `0 0 0 1px ${brandColor}40`,
+            }}>
+              <Zap size={20} color="white" />
             </div>
           )}
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{freelancer.name || 'Client portal'}</div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+              {freelancer.name || 'Client portal'}
+            </div>
+            {project.name && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{project.name}</div>
+            )}
           </div>
         </div>
-        <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-          {[client.name, project.name].filter(Boolean).join(' · ')}
-        </div>
+        {client.name && (
+          <div style={{
+            fontSize: '0.8rem', color: 'var(--text-muted)',
+            background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+            padding: '5px 12px', borderRadius: 20,
+          }}>
+            {client.name}
+          </div>
+        )}
       </header>
 
       {loading || error ? (
@@ -120,36 +136,51 @@ export default function PortalLayout() {
           </div>
         </main>
       ) : (
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Sidebar nav */}
-        <nav className="glass portal-chrome" style={{ width: 200, borderRight: '1px solid var(--border)', padding: '20px 8px', flexShrink: 0 }}>
-          {NAV_ITEMS.map(item => {
-            const active = location.pathname === item.path
-            return (
-              <Link key={item.path} to={`${item.path}${query}`} style={{ textDecoration: 'none' }}>
-                <div className={`portal-nav-item${active ? ' active' : ''}`} style={{
-                  color: active ? brandColor : 'var(--text-secondary)',
-                  borderLeft: active ? `3px solid ${brandColor}` : '3px solid transparent',
-                }}>
-                  <item.icon size={16} />
-                  {item.label}
-                </div>
-              </Link>
-            )
-          })}
-        </nav>
+        <div style={{ display: 'flex', flex: 1 }}>
+          {/* Sidebar nav */}
+          <nav className="glass portal-chrome" style={{
+            width: 220, borderRight: '1px solid var(--border)',
+            padding: '24px 12px', flexShrink: 0,
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-muted)', textTransform: 'uppercase', padding: '2px 10px 10px' }}>
+              Navigation
+            </div>
+            {NAV_ITEMS.map(item => {
+              const active = location.pathname === item.path
+              return (
+                <Link key={item.path} to={`${item.path}${query}`} style={{ textDecoration: 'none' }}>
+                  <div
+                    className={`portal-nav-item${active ? ' active' : ''}`}
+                    style={{
+                      color: active ? brandColor : 'var(--text-secondary)',
+                      borderLeft: active ? `3px solid ${brandColor}` : '3px solid transparent',
+                      padding: '10px 12px',
+                      fontSize: '0.875rem',
+                      fontWeight: active ? 600 : 500,
+                      gap: 10,
+                    }}
+                  >
+                    <item.icon size={16} />
+                    {item.label}
+                  </div>
+                </Link>
+              )
+            })}
+          </nav>
 
-        {/* Content */}
-        <main className="portal-main" style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
-          <Outlet context={{ token, portal: payload, setPortal: updatePayload, freelancer, client, project }} />
-        </main>
-      </div>
+          {/* Content */}
+          <main className="portal-main" style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+            <Outlet context={{ token, portal: payload, setPortal: updatePayload, freelancer, client, project }} />
+          </main>
+        </div>
       )}
 
       {/* Footer */}
-      <footer className="glass portal-chrome" style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+      <footer className="glass portal-chrome" style={{ padding: '14px 32px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'center' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Powered by Velora{freelancer.name ? ` · ${freelancer.name}` : ''}
+          Powered by <strong style={{ color: 'var(--text-secondary)' }}>Velora</strong>
+          {freelancer.name ? ` · ${freelancer.name}` : ''}
         </span>
       </footer>
     </div>

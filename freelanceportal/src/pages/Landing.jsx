@@ -229,7 +229,7 @@ function GlobalNav() {
   return (
     <header className="apple-global-nav">
       <Link className="apple-brand" to="/" aria-label="Velora home">
-        <img src="/velora-logo-wordmark-transparent.png" alt="Velora" style={{ width: 248, height: 62, objectFit: 'contain' }} />
+        <img src="/velora-logo-wordmark-transparent.png" alt="Velora" style={{ width: 160, height: 40, objectFit: 'contain' }} />
       </Link>
       <nav className="apple-nav-links" aria-label="Primary navigation">
         <a href="#highlights">Product</a>
@@ -1000,7 +1000,7 @@ function Footer() {
   return (
     <footer className="apple-footer">
       <div className="footer-brand">
-        <img src="/velora-logo-wordmark-transparent.png" alt="Velora" style={{ width: 256, height: 64, objectFit: 'contain' }} />
+        <img src="/velora-logo-wordmark-transparent.png" alt="Velora" style={{ width: 168, height: 42, objectFit: 'contain' }} />
         <p>Client portals for solo freelancers.</p>
       </div>
       <nav className="footer-links" aria-label="Footer navigation">
