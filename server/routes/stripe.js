@@ -5,6 +5,7 @@ const { getSupabaseAdmin, requireUser } = require('../lib/supabase')
 const { requireEnv } = require('../lib/env')
 const { HttpError } = require('../lib/httpError')
 const { createRateLimiter } = require('../lib/rateLimit')
+const email = require('../lib/email')
 
 let _stripe = null
 function getStripe() {
@@ -417,6 +418,52 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
         await _markInvoicePaid(userId, invoiceId, session.payment_intent)
         await _addNotification(userId, 'payment', `Payment received for invoice ${invoiceId}`)
+
+        // Email notifications
+        try {
+          const supabase = getSupabaseAdmin()
+          const { data: userRecord } = await supabase.auth.admin.getUserById(userId)
+          const freelancerEmail = userRecord?.user?.email
+          const { data: invRecord } = await supabase
+            .from('invoices')
+            .select('*, clients(name,email)')
+            .eq('owner_id', userId)
+            .or(`id.eq.${invoiceId},stripe_invoice_id.eq.${invoiceId}`)
+            .maybeSingle()
+
+          if (freelancerEmail && invRecord) {
+            const clientEmail = invRecord.clients?.email || session.customer_details?.email
+            const invNum = invRecord.invoice_number || invoiceId
+            const amt = invRecord.total_amount || (session.amount_total ? session.amount_total / 100 : 0)
+
+            // Notify freelancer
+            email.sendInvoicePaid({
+              to: freelancerEmail,
+              freelancerName: freelancerEmail,
+              clientName: invRecord.clients?.name || session.customer_details?.name,
+              invoiceNumber: invNum,
+              amount: amt,
+              currency: (invRecord.currency || session.currency || 'eur').toUpperCase(),
+              dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/invoices`,
+            }).catch(e => console.error('[email] invoice paid notify:', e.message))
+
+            // Receipt to client
+            if (clientEmail) {
+              email.sendPaymentReceipt({
+                to: clientEmail,
+                clientName: invRecord.clients?.name || session.customer_details?.name,
+                businessName: null,
+                freelancerName: freelancerEmail,
+                invoiceNumber: invNum,
+                amount: amt,
+                currency: (invRecord.currency || session.currency || 'eur').toUpperCase(),
+                paidAt: new Date().toISOString(),
+              }).catch(e => console.error('[email] receipt:', e.message))
+            }
+          }
+        } catch (emailErr) {
+          console.error('[webhook] email lookup failed:', emailErr.message)
+        }
         break
       }
 
@@ -449,6 +496,27 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           cancelAtPeriodEnd: sub.cancel_at_period_end,
           trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
         })
+
+        // Email confirmation when subscription becomes active for the first time
+        if (event.type === 'customer.subscription.created' && sub.status === 'active') {
+          try {
+            const supabase = getSupabaseAdmin()
+            const { data: userRecord } = await supabase.auth.admin.getUserById(userId)
+            const userEmail = userRecord?.user?.email
+            if (userEmail) {
+              email.sendSubscriptionConfirmed({
+                to: userEmail,
+                firstName: userEmail.split('@')[0],
+                plan,
+                amount: sub.items?.data?.[0]?.price?.unit_amount,
+                currency: sub.currency?.toUpperCase() || 'EUR',
+                nextBillingDate: sub.current_period_end,
+              }).catch(e => console.error('[email] subscription confirmed:', e.message))
+            }
+          } catch (emailErr) {
+            console.error('[webhook] sub email failed:', emailErr.message)
+          }
+        }
         break
       }
 
@@ -465,6 +533,22 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           cancelAtPeriodEnd: false,
         })
         await _addNotification(userId, 'payment', 'Your Velora subscription has been cancelled.')
+
+        try {
+          const supabase = getSupabaseAdmin()
+          const { data: userRecord } = await supabase.auth.admin.getUserById(userId)
+          const userEmail = userRecord?.user?.email
+          if (userEmail) {
+            email.sendSubscriptionCancelled({
+              to: userEmail,
+              firstName: userEmail.split('@')[0],
+              plan: _resolvePlan(sub),
+              endsAt: sub.current_period_end,
+            }).catch(e => console.error('[email] subscription cancelled:', e.message))
+          }
+        } catch (emailErr) {
+          console.error('[webhook] cancel email failed:', emailErr.message)
+        }
         break
       }
 
@@ -479,6 +563,25 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           latestInvoiceId: inv.id,
         })
         await _addNotification(userId, 'overdue', 'Your Velora subscription payment failed. Please update your payment method.')
+
+        try {
+          const supabase = getSupabaseAdmin()
+          const { data: userRecord } = await supabase.auth.admin.getUserById(userId)
+          const userEmail = userRecord?.user?.email
+          if (userEmail) {
+            email.sendPaymentFailed({
+              to: userEmail,
+              freelancerName: userEmail,
+              clientName: 'Velora',
+              invoiceNumber: inv.number,
+              amount: inv.amount_due ? inv.amount_due / 100 : 0,
+              currency: inv.currency?.toUpperCase() || 'EUR',
+              dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/settings/billing`,
+            }).catch(e => console.error('[email] payment failed notify:', e.message))
+          }
+        } catch (emailErr) {
+          console.error('[webhook] payment failed email error:', emailErr.message)
+        }
         break
       }
 

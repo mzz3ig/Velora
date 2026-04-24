@@ -3,6 +3,7 @@ const router = express.Router()
 const { getSupabaseAdmin, requireUser } = require('../lib/supabase')
 const { HttpError } = require('../lib/httpError')
 const { createRateLimiter } = require('../lib/rateLimit')
+const email = require('../lib/email')
 
 const DATA_TABLES = [
   'workspaces',
@@ -33,6 +34,23 @@ const dataWriteRateLimit = createRateLimiter({
   max: 20,
   keyFn: (req) => `data-write:${req.user?.id || req.ip}`,
 })
+
+// Fetch the freelancer's business name for email templates
+async function getBusinessName(userId) {
+  try {
+    const { data } = await getSupabaseAdmin()
+      .from('velora_state')
+      .select('value')
+      .eq('user_id', userId)
+      .eq('key', 'velora-settings')
+      .maybeSingle()
+    if (data?.value) {
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value
+      return parsed?.state?.settings?.businessName || null
+    }
+  } catch { /* non-fatal */ }
+  return null
+}
 
 async function tableStatus() {
   const supabase = getSupabaseAdmin()
@@ -647,6 +665,40 @@ router.patch('/invoices/:id', requireUser, dataWriteRateLimit, async (req, res, 
   }
 })
 
+router.post('/invoices/:id/send', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('invoices')
+      .update({ status: 'sent', updated_at: new Date().toISOString() })
+      .eq('id', String(req.params.id || ''))
+      .eq('owner_id', req.user.id)
+      .select('*, clients(name,email), projects(name)')
+      .single()
+
+    if (error) throw new HttpError(500, 'Could not update invoice status', { cause: error })
+
+    const inv = normalizeInvoice(data)
+    const clientEmail = data.clients?.email || req.body.clientEmail
+    if (clientEmail) {
+      const businessName = await getBusinessName(req.user.id)
+      const portalUrl = req.body.portalUrl || `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/portal/invoice?invoiceId=${inv.id}`
+      email.sendInvoiceToClient({
+        to: clientEmail,
+        clientName: data.clients?.name,
+        freelancerName: req.user.email,
+        businessName,
+        invoiceNumber: inv.invoiceNumber,
+        amount: inv.amount,
+        currency: inv.currency || '€',
+        dueDate: inv.dueDate,
+        invoiceUrl: portalUrl,
+      }).catch(err => console.error('[email] invoice send failed:', err.message))
+    }
+
+    res.json({ invoice: inv })
+  } catch (err) { next(err) }
+})
+
 router.post('/invoices/:id/paid', requireUser, dataWriteRateLimit, async (req, res, next) => {
   try {
     const { data, error } = await getSupabaseAdmin()
@@ -658,7 +710,36 @@ router.post('/invoices/:id/paid', requireUser, dataWriteRateLimit, async (req, r
       .single()
 
     if (error) throw new HttpError(500, 'Could not mark invoice paid', { cause: error })
-    res.json({ invoice: normalizeInvoice(data) })
+
+    const inv = normalizeInvoice(data)
+    // Notify freelancer
+    email.sendInvoicePaid({
+      to: req.user.email,
+      freelancerName: req.user.email,
+      clientName: data.clients?.name,
+      invoiceNumber: inv.invoiceNumber,
+      amount: inv.amount,
+      currency: inv.currency || '€',
+      dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/invoices`,
+    }).catch(err => console.error('[email] invoice paid notify failed:', err.message))
+
+    // Send receipt to client
+    const clientEmail = data.clients?.email
+    if (clientEmail) {
+      const businessName = await getBusinessName(req.user.id)
+      email.sendPaymentReceipt({
+        to: clientEmail,
+        clientName: data.clients?.name,
+        businessName,
+        freelancerName: req.user.email,
+        invoiceNumber: inv.invoiceNumber,
+        amount: inv.amount,
+        currency: inv.currency || '€',
+        paidAt: inv.paidAt,
+      }).catch(err => console.error('[email] receipt failed:', err.message))
+    }
+
+    res.json({ invoice: inv })
   } catch (err) {
     next(err)
   }
@@ -811,9 +892,43 @@ router.post('/proposals', requireUser, dataWriteRateLimit, async (req, res, next
   } catch (err) { next(err) }
 })
 
+// Send proposal to client by email
+router.post('/proposals/:id/send', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('proposals')
+      .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select('*, clients(name,email)')
+      .single()
+    if (error) throw new HttpError(500, 'Could not send proposal', { cause: error })
+
+    const clientEmail = data.clients?.email || req.body.clientEmail
+    if (clientEmail) {
+      const businessName = await getBusinessName(req.user.id)
+      const proposalUrl = req.body.proposalUrl || `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/portal/proposal?proposalId=${data.id}`
+      email.sendProposalToClient({
+        to: clientEmail,
+        clientName: data.clients?.name,
+        freelancerName: req.user.email,
+        businessName,
+        proposalTitle: data.title,
+        amount: data.total,
+        currency: '€',
+        expiryDate: data.valid_until,
+        proposalUrl,
+      }).catch(err => console.error('[email] proposal send failed:', err.message))
+    }
+
+    res.json({ proposal: data })
+  } catch (err) { next(err) }
+})
+
 router.patch('/proposals/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
   try {
     const allowed = ['title', 'status', 'subtotal', 'discount', 'tax', 'total', 'content', 'valid_until', 'sent_at', 'viewed_at', 'responded_at', 'client_id', 'project_id']
+    const prevStatus = req.body._prevStatus
     const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)))
     updates.updated_at = new Date().toISOString()
     const { data, error } = await getSupabaseAdmin()
@@ -821,9 +936,29 @@ router.patch('/proposals/:id', requireUser, dataWriteRateLimit, async (req, res,
       .update(updates)
       .eq('id', String(req.params.id))
       .eq('owner_id', req.user.id)
-      .select()
+      .select('*, clients(name,email)')
       .single()
     if (error) throw new HttpError(500, 'Could not update proposal', { cause: error })
+
+    // Notify freelancer when client accepts or declines
+    if (updates.status === 'accepted' && prevStatus !== 'accepted') {
+      email.sendProposalAccepted({
+        to: req.user.email,
+        freelancerName: req.user.email,
+        clientName: data.clients?.name,
+        proposalTitle: data.title,
+        dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/proposals`,
+      }).catch(err => console.error('[email] proposal accepted notify failed:', err.message))
+    } else if (updates.status === 'declined' && prevStatus !== 'declined') {
+      email.sendProposalDeclined({
+        to: req.user.email,
+        freelancerName: req.user.email,
+        clientName: data.clients?.name,
+        proposalTitle: data.title,
+        dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/proposals`,
+      }).catch(err => console.error('[email] proposal declined notify failed:', err.message))
+    }
+
     res.json({ proposal: data })
   } catch (err) { next(err) }
 })
@@ -894,9 +1029,19 @@ router.post('/contracts/:id/sign', requireUser, dataWriteRateLimit, async (req, 
       .update({ status: 'signed', signed_at: new Date().toISOString(), signer_name: signer_name || null, signer_ip: signer_ip || null, updated_at: new Date().toISOString() })
       .eq('id', String(req.params.id))
       .eq('owner_id', req.user.id)
-      .select()
+      .select('*, clients(name,email)')
       .single()
     if (error) throw new HttpError(500, 'Could not sign contract', { cause: error })
+
+    // Notify freelancer
+    email.sendContractSigned({
+      to: req.user.email,
+      freelancerName: req.user.email,
+      clientName: data.clients?.name || signer_name,
+      contractTitle: data.title,
+      dashboardUrl: `${process.env.FRONTEND_URL || 'https://veloraworkspace.vercel.app'}/app/contracts`,
+    }).catch(err => console.error('[email] contract signed notify failed:', err.message))
+
     res.json({ contract: data })
   } catch (err) { next(err) }
 })

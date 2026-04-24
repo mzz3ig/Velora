@@ -226,6 +226,28 @@ export async function deleteExpenseFromTables(id) {
   return request('DELETE', `/data/expenses/${encodeURIComponent(id)}`, null)
 }
 
+// ─── Email ────────────────────────────────────────────────────────────────────
+
+export async function getEmailStatus() {
+  return get('/billing/email/status')
+}
+
+export async function sendTestEmail() {
+  return post('/billing/email/test', {})
+}
+
+export async function sendInvoiceEmail({ invoiceId, clientEmail, portalUrl }) {
+  return post(`/data/invoices/${encodeURIComponent(invoiceId)}/send`, { clientEmail, portalUrl })
+}
+
+export async function sendProposalEmail({ proposalId, clientEmail, proposalUrl }) {
+  return post(`/data/proposals/${encodeURIComponent(proposalId)}/send`, { clientEmail, proposalUrl })
+}
+
+export async function sendContractEmail({ contractId, clientEmail, contractUrl }) {
+  return post(`/data/contracts/${encodeURIComponent(contractId)}/send`, { clientEmail, contractUrl })
+}
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 // Admin-only endpoints (server validates admin access)
