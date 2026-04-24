@@ -23,7 +23,7 @@ const PLANS = [
 
 export default function SubscriptionBlocked({ reason }) {
   const navigate = useNavigate()
-  const { billing } = useSettingsStore((s) => ({ billing: s.billing }))
+  const billing = useSettingsStore((s) => s.billing)
   const [loading, setLoading] = useState('')
   const [err, setErr] = useState('')
 

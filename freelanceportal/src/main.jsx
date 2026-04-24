@@ -36,9 +36,7 @@ if ('serviceWorker' in navigator) {
 }
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <MotionConfig reducedMotion={perfLow ? 'always' : 'user'}>
-      <App />
-    </MotionConfig>
-  </StrictMode>,
+  <MotionConfig reducedMotion={perfLow ? 'always' : 'user'}>
+    <App />
+  </MotionConfig>,
 )
