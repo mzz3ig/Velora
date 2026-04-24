@@ -72,10 +72,28 @@ async function _getBillingState(userId) {
 
 // Returns { allowed, reason, billing }
 async function checkSubscriptionAccess(userId) {
+  // Admin emails always have full access regardless of billing state
+  const adminEmails = (
+    process.env.ADMIN_EMAILS ||
+    process.env.ADMIN_EMAIL ||
+    process.env.VITE_ADMIN_EMAIL ||
+    ''
+  ).split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+
+  // Resolve user email if needed
+  try {
+    const supabase = getSupabaseAdmin()
+    const { data } = await supabase.auth.admin.getUserById(userId)
+    if (data?.user?.email && adminEmails.includes(data.user.email.toLowerCase())) {
+      return { allowed: true, reason: 'admin', billing: null }
+    }
+  } catch {
+    // non-fatal — fall through to billing check
+  }
+
   const billing = await _getBillingState(userId)
 
-  // No billing state means user just registered and hasn't started a subscription yet.
-  // Grant access — they are still within their implicit trial window.
+  // No billing state: new user, still in implicit trial window
   if (!billing) return { allowed: true, reason: 'no_billing', billing: null }
 
   const status = billing.subscriptionStatus

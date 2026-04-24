@@ -3,19 +3,10 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { rehydrateAppStores } from '../../store'
 import { isAdminEmail } from '../../lib/admin'
-import { getBillingStatus } from '../../lib/api'
 import VeloraLoader from '../ui/VeloraLoader'
-import SubscriptionBlocked from '../../pages/auth/SubscriptionBlocked'
-
-const BILLING_EXEMPT_PATHS = ['/app/settings', '/onboarding']
 
 export default function ProtectedRoute() {
-  const [state, setState] = useState({
-    loading: true,
-    session: null,
-    onboardingComplete: null,
-    billingStatus: null,
-  })
+  const [state, setState] = useState({ loading: true, session: null, onboardingComplete: null })
   const location = useLocation()
   const inflight = useRef(false)
 
@@ -27,47 +18,29 @@ export default function ProtectedRoute() {
       inflight.current = true
 
       if (!session) {
-        if (mounted) setState({ loading: false, session: null, onboardingComplete: null, billingStatus: null })
+        if (mounted) setState({ loading: false, session: null, onboardingComplete: null })
         inflight.current = false
         return
       }
 
-      try {
-        await rehydrateAppStores()
-      } catch {
-        // non-fatal
-      }
+      try { await rehydrateAppStores() } catch { /* non-fatal */ }
 
       let onboardingComplete = true
-      let billingStatus = { allowed: true, reason: 'check_failed' }
-
       try {
-        const [ob, bi] = await Promise.all([
-          supabase
-            .from('user_onboarding')
-            .select('completed_at')
-            .eq('user_id', session.user.id)
-            .maybeSingle()
-            .then(({ data, error }) => {
-              if (error) throw error
-              return Boolean(data?.completed_at)
-            }),
-          getBillingStatus().catch(() => ({ allowed: true, reason: 'check_failed' })),
-        ])
-        onboardingComplete = ob
-        billingStatus = bi
-      } catch {
-        // fallback already set above
-      }
+        const { data, error } = await supabase
+          .from('user_onboarding')
+          .select('completed_at')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        if (!error) onboardingComplete = Boolean(data?.completed_at)
+      } catch { /* fallback: assume complete */ }
 
-      if (mounted) {
-        setState({ loading: false, session, onboardingComplete, billingStatus })
-      }
+      if (mounted) setState({ loading: false, session, onboardingComplete })
       inflight.current = false
     }
 
     const timeout = setTimeout(() => {
-      if (mounted) setState({ loading: false, session: null, onboardingComplete: null, billingStatus: null })
+      if (mounted) setState({ loading: false, session: null, onboardingComplete: null })
     }, 8000)
 
     supabase.auth.getSession().then(({ data }) => {
@@ -94,9 +67,9 @@ export default function ProtectedRoute() {
     }
   }, [])
 
-  const { loading, session, onboardingComplete, billingStatus } = state
+  const { loading, session, onboardingComplete } = state
 
-  if (loading || (session && (onboardingComplete === null || billingStatus === null))) {
+  if (loading || (session && onboardingComplete === null)) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}>
         <VeloraLoader surface size={18} words={['session', 'workspace', 'projects', 'tasks', 'session']} />
@@ -104,13 +77,9 @@ export default function ProtectedRoute() {
     )
   }
 
-  if (!session) {
-    return <Navigate to="/login" replace state={{ from: location }} />
-  }
+  if (!session) return <Navigate to="/login" replace state={{ from: location }} />
 
-  if (isAdminEmail(session.user?.email)) {
-    return <Navigate to="/admin/overview" replace />
-  }
+  if (isAdminEmail(session.user?.email)) return <Navigate to="/admin/overview" replace />
 
   if (location.pathname !== '/onboarding' && onboardingComplete === false) {
     return <Navigate to="/onboarding" replace state={{ from: location }} />
@@ -118,11 +87,6 @@ export default function ProtectedRoute() {
 
   if (location.pathname === '/onboarding' && onboardingComplete) {
     return <Navigate to="/app/dashboard" replace />
-  }
-
-  const isExempt = BILLING_EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))
-  if (!isExempt && billingStatus && !billingStatus.allowed) {
-    return <SubscriptionBlocked reason={billingStatus.reason} />
   }
 
   return <Outlet />
