@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, Users, Briefcase, CreditCard, Bell, ArrowUpRight, Plus, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { TrendingUp, Users, Briefcase, CreditCard, ArrowUpRight, Plus, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useClientStore, useProjectStore, useInvoiceStore, useNotificationStore } from '../../store'
 
@@ -74,6 +74,32 @@ export default function Dashboard() {
             </button>
           </Link>
         </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 14,
+          alignItems: 'center',
+          padding: '13px 16px',
+          borderRadius: 8,
+          border: '1px solid rgba(245,158,11,0.28)',
+          background: 'rgba(245,158,11,0.08)',
+          marginBottom: 20,
+        }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <AlertCircle size={17} color="#f59e0b" style={{ marginTop: 1, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>Setup incompleto visível</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+              Stripe, email, domínio, permissões e testes precisam de validação antes de produção.
+            </div>
+          </div>
+        </div>
+        <Link to="/app/setup" className="btn-ghost" style={{ padding: '7px 12px', fontSize: '0.8rem', textDecoration: 'none', flexShrink: 0 }}>
+          Ver status
+        </Link>
       </motion.div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }} className="stats-grid">

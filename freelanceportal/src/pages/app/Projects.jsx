@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, Calendar, CheckCircle2, Circle, X, Briefcase, Trash2, Link as LinkIcon, Copy, LayoutTemplate } from 'lucide-react'
 import { useProjectStore, useClientStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
+import { createProjectInTables, deleteProjectFromTables, listClientsFromTables, listProjectsFromTables, updateProjectInTables } from '../../lib/api'
 
 const statusMeta = {
   active: { label: 'In Progress', color: '#a98252', bg: 'rgba(169,130,82,0.15)' },
@@ -58,8 +59,7 @@ const PROJECT_TEMPLATES = [
   },
 ]
 
-function ProjectDetail({ project, onClose }) {
-  const { toggleMilestone, updateProject, deleteProject } = useProjectStore()
+function ProjectDetail({ project, onClose, onUpdate, onDelete, onToggleMilestone, dataMode }) {
   const [editMode, setEditMode] = useState(false)
   const [newMilestone, setNewMilestone] = useState('')
   const [form, setForm] = useState({ name: project.name, description: project.description, status: project.status, deadline: project.deadline, startDate: project.startDate })
@@ -72,15 +72,15 @@ function ProjectDetail({ project, onClose }) {
 
   const saveEdit = (e) => {
     e.preventDefault()
-    updateProject(project.id, form)
+    onUpdate(project.id, form)
     setEditMode(false)
   }
 
   const addMilestone = (e) => {
     e.preventDefault()
     if (!newMilestone.trim()) return
-    const milestones = [...project.milestones, { id: Date.now(), title: newMilestone, done: false }]
-    updateProject(project.id, { milestones })
+    const milestones = [...(project.milestones || []), { id: Date.now(), title: newMilestone, done: false }]
+    onUpdate(project.id, { milestones })
     setNewMilestone('')
   }
 
@@ -194,8 +194,8 @@ function ProjectDetail({ project, onClose }) {
         <div>
           <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, color: 'var(--text-secondary)' }}>Milestones</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-            {project.milestones.map(m => (
-              <div key={m.id} onClick={() => toggleMilestone(project.id, m.id)}
+            {(project.milestones || []).map(m => (
+              <div key={m.id} onClick={() => onToggleMilestone(project.id, m.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(169,130,82,0.3)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
@@ -210,7 +210,13 @@ function ProjectDetail({ project, onClose }) {
           </form>
         </div>
 
-        <button onClick={() => { deleteProject(project.id); onClose() }} style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'none', border: '1px solid #f8717130', borderRadius: 6, cursor: 'pointer', color: '#f87171', fontSize: '0.8rem' }}>
+        {dataMode === 'tables' && (project.milestones || []).length === 0 && (
+          <p style={{ marginTop: 12, fontSize: '0.76rem', color: '#f59e0b' }}>
+            Milestones ainda estão em desenvolvimento para projetos guardados nas tabelas Supabase.
+          </p>
+        )}
+
+        <button onClick={() => { onDelete(project.id); onClose() }} style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'none', border: '1px solid #f8717130', borderRadius: 6, cursor: 'pointer', color: '#f87171', fontSize: '0.8rem' }}>
           <Trash2 size={13} /> Delete project
         </button>
       </motion.div>
@@ -218,9 +224,7 @@ function ProjectDetail({ project, onClose }) {
   )
 }
 
-function NewProjectModal({ onClose, preset }) {
-  const { addProject } = useProjectStore()
-  const { clients } = useClientStore()
+function NewProjectModal({ onClose, preset, clients, onAdd }) {
   const [form, setForm] = useState({
     name: preset?.name || '',
     clientId: '',
@@ -234,9 +238,9 @@ function NewProjectModal({ onClose, preset }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const client = clients.find(c => c.id === parseInt(form.clientId))
+    const client = clients.find(c => String(c.id) === String(form.clientId))
     const milestones = preset ? preset.milestones.map(m => ({ ...m, id: Date.now() + Math.random() })) : []
-    addProject({ ...form, clientId: client?.id || null, client: client?.name || form.client, clientColor: client?.color || '#a98252', progress: 0, milestones })
+    onAdd({ ...form, clientId: client?.id || null, client: client?.name || form.client, clientColor: client?.color || '#a98252', progress: 0, milestones })
     onClose()
   }
 
@@ -308,7 +312,13 @@ function ProjectTemplatesModal({ onClose, onSelect }) {
 }
 
 export default function Projects() {
-  const { projects } = useProjectStore()
+  const { projects, addProject, updateProject, deleteProject, toggleMilestone } = useProjectStore()
+  const { clients } = useClientStore()
+  const [tableProjects, setTableProjects] = useState([])
+  const [tableClients, setTableClients] = useState([])
+  const [dataMode, setDataMode] = useState('legacy')
+  const [dataError, setDataError] = useState('')
+  const [loadingTables, setLoadingTables] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [selected, setSelected] = useState(null)
@@ -316,13 +326,76 @@ export default function Projects() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [templatePreset, setTemplatePreset] = useState(null)
 
-  const filtered = projects.filter(p => {
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      setLoadingTables(true)
+      setDataError('')
+      try {
+        const [projectData, clientData] = await Promise.all([
+          listProjectsFromTables(),
+          listClientsFromTables(),
+        ])
+        if (!mounted) return
+        setTableProjects(projectData.projects || [])
+        setTableClients(clientData.clients || [])
+        setDataMode('tables')
+      } catch (error) {
+        if (!mounted) return
+        setDataMode('legacy')
+        setDataError(error.message || 'Project tables are not ready yet.')
+      } finally {
+        if (mounted) setLoadingTables(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const activeProjects = dataMode === 'tables' ? tableProjects : projects
+  const activeClients = dataMode === 'tables' ? tableClients : clients
+
+  async function handleAddProject(project) {
+    if (dataMode === 'tables') {
+      const created = await createProjectInTables(project)
+      setTableProjects((current) => [created.project, ...current])
+      return
+    }
+    addProject(project)
+  }
+
+  async function handleUpdateProject(id, data) {
+    if (dataMode === 'tables') {
+      const updated = await updateProjectInTables(id, data)
+      setTableProjects((current) => current.map((project) => project.id === id ? updated.project : project))
+      return
+    }
+    updateProject(id, data)
+  }
+
+  async function handleDeleteProject(id) {
+    if (dataMode === 'tables') {
+      await deleteProjectFromTables(id)
+      setTableProjects((current) => current.filter((project) => project.id !== id))
+      return
+    }
+    deleteProject(id)
+  }
+
+  function handleToggleMilestone(projectId, milestoneId) {
+    if (dataMode === 'tables') return
+    toggleMilestone(projectId, milestoneId)
+  }
+
+  const filtered = useMemo(() => activeProjects.filter(p => {
     const q = search.toLowerCase()
     const match = p.name.toLowerCase().includes(q) || (p.client||'').toLowerCase().includes(q)
     return match && (filter === 'all' || p.status === filter)
-  })
+  }), [activeProjects, filter, search])
 
-  const liveProject = selected ? projects.find(p => p.id === selected.id) || selected : null
+  const liveProject = selected ? activeProjects.find(p => p.id === selected.id) || selected : null
 
   return (
     <div style={{ padding: '32px' }}>
@@ -330,7 +403,15 @@ export default function Projects() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: 0, marginBottom: 4 }}>Projects</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{projects.filter(p=>p.status==='active').length} active projects</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {activeProjects.filter(p=>p.status==='active').length} active projects · {dataMode === 'tables' ? 'Supabase tables' : 'Supabase legacy store'}
+            {loadingTables ? ' · checking data model...' : ''}
+          </p>
+          {dataMode === 'legacy' && dataError && (
+            <p style={{ color: '#f59e0b', fontSize: '0.76rem', marginTop: 5 }}>
+              Ação necessária: aplica o schema Supabase para ativar tabelas reais. A app continua a guardar em velora_state.
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-ghost" style={{ padding: '9px 18px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setShowTemplates(true)}>
@@ -389,7 +470,7 @@ export default function Projects() {
                   <Calendar size={11} /> {p.deadline || 'No deadline'}
                 </div>
                 <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-                  {p.milestones.filter(m=>m.done).length}/{p.milestones.length} milestones
+                  {(p.milestones || []).filter(m=>m.done).length}/{(p.milestones || []).length} milestones
                 </div>
               </div>
             </motion.div>
@@ -398,8 +479,8 @@ export default function Projects() {
       </div>
 
       <AnimatePresence>
-        {liveProject && <ProjectDetail project={liveProject} onClose={() => setSelected(null)} />}
-        {showNew && <NewProjectModal onClose={() => setShowNew(false)} preset={templatePreset} />}
+        {liveProject && <ProjectDetail project={liveProject} onClose={() => setSelected(null)} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} onToggleMilestone={handleToggleMilestone} dataMode={dataMode} />}
+        {showNew && <NewProjectModal onClose={() => setShowNew(false)} preset={templatePreset} clients={activeClients} onAdd={handleAddProject} />}
         {showTemplates && <ProjectTemplatesModal onClose={() => setShowTemplates(false)} onSelect={tmpl => { setTemplatePreset(tmpl); setShowNew(true) }} />}
       </AnimatePresence>
     </div>

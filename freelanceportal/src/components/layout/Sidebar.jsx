@@ -8,6 +8,7 @@ import {
   Package, TrendingUp, ClipboardList, CalendarDays,
   BarChart2, Zap as ZapIcon, CheckSquare, Bell,
   CheckCircle2, AlertCircle, X, ChevronLeft, Home,
+  ShieldAlert,
 } from 'lucide-react'
 import { useNotificationStore, useSettingsStore } from '../../store'
 import { supabase } from '../../lib/supabase'
@@ -52,6 +53,7 @@ const navGroups = [
     items: [
       { icon: BarChart2, label: 'Reports', path: '/app/reports' },
       { icon: ZapIcon, label: 'Automations', path: '/app/automations' },
+      { icon: ShieldAlert, label: 'Setup status', path: '/app/setup' },
     ],
   },
 ]

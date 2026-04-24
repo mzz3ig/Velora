@@ -43,6 +43,7 @@ import Scheduling from './pages/app/Scheduling'
 import Reports from './pages/app/Reports'
 import Automations from './pages/app/Automations'
 import Tasks from './pages/app/Tasks'
+import SetupStatus from './pages/app/SetupStatus'
 
 // Client Portal pages (public, magic-link based)
 import PortalLayout from './pages/portal/PortalLayout'
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="messages" element={<Messages />} />
             <Route path="reports" element={<Reports />} />
             <Route path="automations" element={<Automations />} />
+            <Route path="setup" element={<SetupStatus />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

@@ -12,9 +12,380 @@ create table if not exists public.stripe_webhook_events (
   processed_at timestamptz not null default now()
 );
 
+-- ─── PRODUCTION DATA MODEL ────────────────────────────────────────────────
+-- Velora currently persists app stores in public.velora_state. These tables
+-- are the normalized Supabase target for production modules. They can be
+-- adopted module by module while keeping velora_state as the migration source.
+
+create table if not exists public.workspaces (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  name text not null default 'My workspace',
+  country text,
+  currency text not null default 'EUR',
+  language text not null default 'en',
+  timezone text not null default 'Europe/Lisbon',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.workspace_members (
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'owner' check (role in ('owner', 'admin', 'manager', 'member', 'accountant')),
+  created_at timestamptz not null default now(),
+  primary key (workspace_id, user_id)
+);
+
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  email text,
+  phone text,
+  company text,
+  website text,
+  tax_id text,
+  address jsonb not null default '{}'::jsonb,
+  tags text[] not null default '{}',
+  notes text,
+  status text not null default 'active' check (status in ('active', 'archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  name text not null,
+  description text,
+  status text not null default 'lead',
+  priority text not null default 'medium',
+  budget numeric(12,2),
+  currency text not null default 'EUR',
+  starts_at date,
+  deadline date,
+  progress int not null default 0 check (progress >= 0 and progress <= 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.proposals (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  title text not null,
+  status text not null default 'draft',
+  currency text not null default 'EUR',
+  subtotal numeric(12,2) not null default 0,
+  discount numeric(6,2) not null default 0,
+  tax numeric(6,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  content jsonb not null default '{}'::jsonb,
+  valid_until date,
+  sent_at timestamptz,
+  viewed_at timestamptz,
+  responded_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.contracts (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  proposal_id uuid references public.proposals(id) on delete set null,
+  title text not null,
+  status text not null default 'draft',
+  content text,
+  signed_at timestamptz,
+  signer_name text,
+  signer_ip inet,
+  signed_pdf_path text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.invoices (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  proposal_id uuid references public.proposals(id) on delete set null,
+  contract_id uuid references public.contracts(id) on delete set null,
+  invoice_number text not null,
+  status text not null default 'draft',
+  currency text not null default 'EUR',
+  subtotal numeric(12,2) not null default 0,
+  discount numeric(6,2) not null default 0,
+  tax numeric(6,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  issued_on date,
+  due_on date,
+  paid_at timestamptz,
+  viewed_at timestamptz,
+  stripe_checkout_session_id text,
+  stripe_payment_intent_id text,
+  stripe_checkout_url text,
+  notes text,
+  terms text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (workspace_id, invoice_number)
+);
+
+create table if not exists public.invoice_items (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.invoices(id) on delete cascade,
+  description text not null,
+  quantity numeric(12,2) not null default 1,
+  unit_price numeric(12,2) not null default 0,
+  tax numeric(6,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  amount numeric(12,2) not null,
+  currency text not null default 'EUR',
+  status text not null default 'pending',
+  provider text not null default 'stripe',
+  provider_payment_id text,
+  paid_at timestamptz,
+  raw_event jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.tasks (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  title text not null,
+  notes text,
+  status text not null default 'todo',
+  priority text not null default 'medium',
+  assignee_id uuid references auth.users(id) on delete set null,
+  assignee text,
+  kanban_col text,
+  due_on date,
+  completed_at timestamptz,
+  portal_visible boolean not null default false,
+  subtasks jsonb not null default '[]'::jsonb,
+  comments jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.time_entries (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  task_id uuid references public.tasks(id) on delete set null,
+  description text,
+  entry_date date not null default current_date,
+  minutes int not null check (minutes > 0),
+  billable boolean not null default true,
+  hourly_rate numeric(12,2),
+  invoiced boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  legacy_id text,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  category text,
+  merchant text not null,
+  amount numeric(12,2) not null,
+  currency text not null default 'EUR',
+  tax numeric(6,2) not null default 0,
+  expense_date date not null default current_date,
+  reimbursable boolean not null default false,
+  billable boolean not null default false,
+  receipt_path text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists clients_workspace_idx on public.clients(workspace_id, status);
+create index if not exists projects_workspace_idx on public.projects(workspace_id, status);
+create index if not exists invoices_workspace_idx on public.invoices(workspace_id, status);
+create index if not exists tasks_workspace_idx on public.tasks(workspace_id, status);
+create index if not exists payments_workspace_idx on public.payments(workspace_id, status);
+create unique index if not exists clients_workspace_legacy_idx on public.clients(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists projects_workspace_legacy_idx on public.projects(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists proposals_workspace_legacy_idx on public.proposals(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists contracts_workspace_legacy_idx on public.contracts(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists invoices_workspace_legacy_idx on public.invoices(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists tasks_workspace_legacy_idx on public.tasks(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists time_entries_workspace_legacy_idx on public.time_entries(workspace_id, legacy_id) where legacy_id is not null;
+create unique index if not exists expenses_workspace_legacy_idx on public.expenses(workspace_id, legacy_id) where legacy_id is not null;
+
 alter table public.stripe_webhook_events enable row level security;
 
 alter table public.velora_state enable row level security;
+
+alter table public.workspaces enable row level security;
+alter table public.workspace_members enable row level security;
+alter table public.clients enable row level security;
+alter table public.projects enable row level security;
+alter table public.proposals enable row level security;
+alter table public.contracts enable row level security;
+alter table public.invoices enable row level security;
+alter table public.invoice_items enable row level security;
+alter table public.payments enable row level security;
+alter table public.tasks enable row level security;
+alter table public.time_entries enable row level security;
+alter table public.expenses enable row level security;
+
+drop policy if exists "Users can manage owned workspaces" on public.workspaces;
+create policy "Users can manage owned workspaces"
+  on public.workspaces
+  for all
+  to authenticated
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can read their workspace membership" on public.workspace_members;
+create policy "Users can read their workspace membership"
+  on public.workspace_members
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owners can manage workspace members" on public.workspace_members;
+create policy "Owners can manage workspace members"
+  on public.workspace_members
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.workspaces
+      where workspaces.id = workspace_members.workspace_id
+        and workspaces.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.workspaces
+      where workspaces.id = workspace_members.workspace_id
+        and workspaces.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can manage owned clients" on public.clients;
+create policy "Users can manage owned clients" on public.clients for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned projects" on public.projects;
+create policy "Users can manage owned projects" on public.projects for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned proposals" on public.proposals;
+create policy "Users can manage owned proposals" on public.proposals for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned contracts" on public.contracts;
+create policy "Users can manage owned contracts" on public.contracts for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned invoices" on public.invoices;
+create policy "Users can manage owned invoices" on public.invoices for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can read owned invoice items" on public.invoice_items;
+create policy "Users can read owned invoice items"
+  on public.invoice_items
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.invoices
+      where invoices.id = invoice_items.invoice_id
+        and invoices.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert owned invoice items" on public.invoice_items;
+create policy "Users can insert owned invoice items"
+  on public.invoice_items
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.invoices
+      where invoices.id = invoice_items.invoice_id
+        and invoices.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can update owned invoice items" on public.invoice_items;
+create policy "Users can update owned invoice items"
+  on public.invoice_items
+  for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.invoices
+      where invoices.id = invoice_items.invoice_id
+        and invoices.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.invoices
+      where invoices.id = invoice_items.invoice_id
+        and invoices.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete owned invoice items" on public.invoice_items;
+create policy "Users can delete owned invoice items"
+  on public.invoice_items
+  for delete
+  to authenticated
+  using (
+    exists (
+      select 1 from public.invoices
+      where invoices.id = invoice_items.invoice_id
+        and invoices.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can manage owned payments" on public.payments;
+create policy "Users can manage owned payments" on public.payments for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned tasks" on public.tasks;
+create policy "Users can manage owned tasks" on public.tasks for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned time entries" on public.time_entries;
+create policy "Users can manage owned time entries" on public.time_entries for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "Users can manage owned expenses" on public.expenses;
+create policy "Users can manage owned expenses" on public.expenses for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 drop policy if exists "Users can read their own Velora state" on public.velora_state;
 create policy "Users can read their own Velora state"
@@ -564,6 +935,363 @@ grant execute on function public.portal_sign_contract(text, text, text) to anon,
 grant execute on function public.portal_send_message(text, text) to anon, authenticated;
 grant execute on function public.public_form_payload(uuid, text) to anon, authenticated;
 grant execute on function public.public_submit_form(uuid, text, jsonb) to anon, authenticated;
+
+-- ─── LEGACY STATE MIGRATION ───────────────────────────────────────────────
+-- Migrates current velora_state JSON stores into normalized production tables.
+-- Idempotent through (workspace_id, legacy_id) indexes.
+
+create or replace function public.migrate_velora_state_to_tables(target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_workspace_id uuid;
+  settings_state jsonb;
+  clients_state jsonb;
+  projects_state jsonb;
+  proposals_state jsonb;
+  contracts_state jsonb;
+  invoices_state jsonb;
+  tasks_state jsonb;
+  time_state jsonb;
+  expenses_state jsonb;
+  item jsonb;
+  inserted_counts jsonb := '{}'::jsonb;
+  client_uuid uuid;
+  project_uuid uuid;
+  proposal_uuid uuid;
+  contract_uuid uuid;
+  invoice_uuid uuid;
+begin
+  if target_user_id is null then
+    return jsonb_build_object('error', 'missing_user');
+  end if;
+
+  settings_state := public.portal_store_state(target_user_id, 'velora-settings');
+
+  insert into public.workspaces (owner_id, name, currency, language, timezone)
+  values (
+    target_user_id,
+    coalesce(nullif(settings_state #>> '{branding,businessName}', ''), 'My workspace'),
+    coalesce(nullif(settings_state #>> '{preferences,currency}', ''), 'EUR'),
+    coalesce(nullif(settings_state #>> '{preferences,language}', ''), 'en'),
+    coalesce(nullif(settings_state #>> '{preferences,timezone}', ''), 'Europe/Lisbon')
+  )
+  on conflict do nothing;
+
+  select id into target_workspace_id
+  from public.workspaces
+  where owner_id = target_user_id
+  order by created_at asc
+  limit 1;
+
+  insert into public.workspace_members (workspace_id, user_id, role)
+  values (target_workspace_id, target_user_id, 'owner')
+  on conflict (workspace_id, user_id) do nothing;
+
+  clients_state := public.portal_store_state(target_user_id, 'velora-clients');
+  for item in select value from jsonb_array_elements(coalesce(clients_state->'clients', '[]'::jsonb))
+  loop
+    insert into public.clients (
+      legacy_id, workspace_id, owner_id, name, email, phone, company, website, tax_id, tags, notes, status, created_at
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      coalesce(nullif(item->>'name', ''), 'Unnamed client'),
+      nullif(item->>'email', ''),
+      nullif(item->>'phone', ''),
+      nullif(item->>'company', ''),
+      nullif(item->>'website', ''),
+      nullif(item->>'taxId', ''),
+      coalesce(array(select jsonb_array_elements_text(coalesce(item->'tags', '[]'::jsonb))), '{}'),
+      nullif(item->>'notes', ''),
+      case when item->>'status' = 'archived' then 'archived' else 'active' end,
+      coalesce((item->>'createdAt')::date::timestamptz, now())
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set name = excluded.name,
+        email = excluded.email,
+        phone = excluded.phone,
+        company = excluded.company,
+        website = excluded.website,
+        tax_id = excluded.tax_id,
+        tags = excluded.tags,
+        notes = excluded.notes,
+        status = excluded.status,
+        updated_at = now();
+  end loop;
+
+  projects_state := public.portal_store_state(target_user_id, 'velora-projects');
+  for item in select value from jsonb_array_elements(coalesce(projects_state->'projects', '[]'::jsonb))
+  loop
+    select id into client_uuid
+    from public.clients
+    where workspace_id = target_workspace_id
+      and (legacy_id = item->>'clientId' or name = item->>'client')
+    limit 1;
+
+    insert into public.projects (
+      legacy_id, workspace_id, owner_id, client_id, name, description, status, priority, budget, deadline, progress
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      client_uuid,
+      coalesce(nullif(item->>'name', ''), 'Untitled project'),
+      nullif(item->>'description', ''),
+      coalesce(nullif(item->>'status', ''), 'lead'),
+      coalesce(nullif(item->>'priority', ''), 'medium'),
+      nullif(item->>'budget', '')::numeric,
+      nullif(item->>'deadline', '')::date,
+      coalesce(nullif(item->>'progress', '')::int, 0)
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set client_id = excluded.client_id,
+        name = excluded.name,
+        description = excluded.description,
+        status = excluded.status,
+        priority = excluded.priority,
+        budget = excluded.budget,
+        deadline = excluded.deadline,
+        progress = excluded.progress,
+        updated_at = now();
+  end loop;
+
+  proposals_state := public.portal_store_state(target_user_id, 'velora-proposals');
+  for item in select value from jsonb_array_elements(coalesce(proposals_state->'proposals', '[]'::jsonb))
+  loop
+    select id into client_uuid from public.clients where workspace_id = target_workspace_id and (legacy_id = item->>'clientId' or name = item->>'client') limit 1;
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+
+    insert into public.proposals (
+      legacy_id, workspace_id, owner_id, client_id, project_id, title, status, subtotal, discount, tax, total, content, valid_until, sent_at, viewed_at, responded_at
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      client_uuid,
+      project_uuid,
+      coalesce(nullif(item->>'title', ''), nullif(item->>'name', ''), 'Proposal'),
+      coalesce(nullif(item->>'status', ''), 'draft'),
+      coalesce(nullif(item->>'subtotal', '')::numeric, 0),
+      coalesce(nullif(item->>'discount', '')::numeric, 0),
+      coalesce(nullif(item->>'tax', '')::numeric, 0),
+      coalesce(nullif(item->>'total', '')::numeric, 0),
+      item,
+      nullif(item->>'validUntil', '')::date,
+      nullif(item->>'sent_at', '')::timestamptz,
+      nullif(item->>'viewed_at', '')::timestamptz,
+      nullif(item->>'responded_at', '')::timestamptz
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set status = excluded.status,
+        total = excluded.total,
+        content = excluded.content,
+        updated_at = now();
+  end loop;
+
+  contracts_state := public.portal_store_state(target_user_id, 'velora-contracts');
+  for item in select value from jsonb_array_elements(coalesce(contracts_state->'contracts', '[]'::jsonb))
+  loop
+    select id into client_uuid from public.clients where workspace_id = target_workspace_id and (legacy_id = item->>'clientId' or name = item->>'client') limit 1;
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+    select id into proposal_uuid from public.proposals where workspace_id = target_workspace_id and legacy_id = item->>'proposalId' limit 1;
+
+    insert into public.contracts (
+      legacy_id, workspace_id, owner_id, client_id, project_id, proposal_id, title, status, content, signed_at, signer_name
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      client_uuid,
+      project_uuid,
+      proposal_uuid,
+      coalesce(nullif(item->>'title', ''), 'Contract'),
+      coalesce(nullif(item->>'status', ''), 'draft'),
+      nullif(item->>'content', ''),
+      nullif(item->>'signed_at', '')::timestamptz,
+      nullif(item->>'signer_name', '')
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set status = excluded.status,
+        content = excluded.content,
+        signed_at = excluded.signed_at,
+        signer_name = excluded.signer_name,
+        updated_at = now();
+  end loop;
+
+  invoices_state := public.portal_store_state(target_user_id, 'velora-invoices');
+  for item in select value from jsonb_array_elements(coalesce(invoices_state->'invoices', '[]'::jsonb))
+  loop
+    select id into client_uuid from public.clients where workspace_id = target_workspace_id and (legacy_id = item->>'clientId' or name = item->>'client') limit 1;
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+    select id into proposal_uuid from public.proposals where workspace_id = target_workspace_id and legacy_id = item->>'proposalId' limit 1;
+    select id into contract_uuid from public.contracts where workspace_id = target_workspace_id and legacy_id = item->>'contractId' limit 1;
+
+    insert into public.invoices (
+      legacy_id, workspace_id, owner_id, client_id, project_id, proposal_id, contract_id, invoice_number, status,
+      subtotal, discount, tax, total, issued_on, due_on, paid_at, viewed_at, stripe_checkout_session_id, stripe_payment_intent_id,
+      stripe_checkout_url, notes, terms
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      client_uuid,
+      project_uuid,
+      proposal_uuid,
+      contract_uuid,
+      coalesce(nullif(item->>'number', ''), nullif(item->>'id', ''), 'INV-LEGACY'),
+      coalesce(nullif(item->>'status', ''), 'draft'),
+      coalesce(nullif(item->>'amount', '')::numeric, 0),
+      coalesce(nullif(item->>'discount', '')::numeric, 0),
+      coalesce(nullif(item->>'tax', '')::numeric, 0),
+      coalesce(nullif(item->>'total', '')::numeric, nullif(item->>'amount', '')::numeric, 0),
+      nullif(item->>'issued', '')::date,
+      nullif(item->>'due', '')::date,
+      nullif(item->>'paid', '')::date::timestamptz,
+      nullif(item->>'viewed_at', '')::timestamptz,
+      nullif(item->>'stripeSessionId', ''),
+      nullif(item->>'stripePaymentIntentId', ''),
+      nullif(item->>'stripeCheckoutUrl', ''),
+      nullif(item->>'notes', ''),
+      nullif(item->>'terms', '')
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set status = excluded.status,
+        total = excluded.total,
+        paid_at = excluded.paid_at,
+        viewed_at = excluded.viewed_at,
+        stripe_checkout_session_id = excluded.stripe_checkout_session_id,
+        stripe_payment_intent_id = excluded.stripe_payment_intent_id,
+        stripe_checkout_url = excluded.stripe_checkout_url,
+        updated_at = now();
+  end loop;
+
+  tasks_state := public.portal_store_state(target_user_id, 'velora-tasks');
+  for item in select value from jsonb_array_elements(coalesce(tasks_state->'tasks', '[]'::jsonb))
+  loop
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+
+    insert into public.tasks (
+      legacy_id, workspace_id, owner_id, project_id, title, notes, status, priority, assignee, kanban_col,
+      due_on, completed_at, portal_visible, subtasks, comments
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      project_uuid,
+      coalesce(nullif(item->>'title', ''), 'Untitled task'),
+      nullif(item->>'notes', ''),
+      case when coalesce((item->>'done')::boolean, false) then 'completed' else coalesce(nullif(item->>'status', ''), 'todo') end,
+      coalesce(nullif(item->>'priority', ''), 'medium'),
+      nullif(item->>'assignee', ''),
+      nullif(item->>'kanban_col', ''),
+      nullif(item->>'due_date', '')::date,
+      case when coalesce((item->>'done')::boolean, false) then now() else null end,
+      coalesce((item->>'portal_visible')::boolean, false),
+      coalesce(item->'subtasks', '[]'::jsonb),
+      coalesce(item->'comments', '[]'::jsonb)
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set title = excluded.title,
+        notes = excluded.notes,
+        status = excluded.status,
+        priority = excluded.priority,
+        assignee = excluded.assignee,
+        kanban_col = excluded.kanban_col,
+        due_on = excluded.due_on,
+        portal_visible = excluded.portal_visible,
+        subtasks = excluded.subtasks,
+        comments = excluded.comments,
+        updated_at = now();
+  end loop;
+
+  time_state := public.portal_store_state(target_user_id, 'velora-time');
+  for item in select value from jsonb_array_elements(coalesce(time_state->'entries', '[]'::jsonb))
+  loop
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+
+    insert into public.time_entries (
+      legacy_id, workspace_id, owner_id, project_id, description, entry_date, minutes, billable, invoiced
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      project_uuid,
+      nullif(item->>'task', ''),
+      coalesce(nullif(item->>'date', '')::date, current_date),
+      greatest(1, round(coalesce(nullif(item->>'hours', '')::numeric, 0) * 60)::int),
+      coalesce((item->>'billable')::boolean, true),
+      coalesce((item->>'invoiced')::boolean, false)
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set description = excluded.description,
+        entry_date = excluded.entry_date,
+        minutes = excluded.minutes,
+        billable = excluded.billable,
+        invoiced = excluded.invoiced,
+        updated_at = now();
+  end loop;
+
+  expenses_state := public.portal_store_state(target_user_id, 'velora-expenses');
+  for item in select value from jsonb_array_elements(coalesce(expenses_state->'expenses', '[]'::jsonb))
+  loop
+    select id into project_uuid from public.projects where workspace_id = target_workspace_id and (legacy_id = item->>'projectId' or name = item->>'project') limit 1;
+
+    insert into public.expenses (
+      legacy_id, workspace_id, owner_id, project_id, category, merchant, amount, expense_date, reimbursable, billable, notes
+    )
+    values (
+      item->>'id',
+      target_workspace_id,
+      target_user_id,
+      project_uuid,
+      nullif(item->>'category', ''),
+      coalesce(nullif(item->>'merchant', ''), 'Expense'),
+      coalesce(nullif(item->>'amount', '')::numeric, 0),
+      coalesce(nullif(item->>'date', '')::date, current_date),
+      coalesce((item->>'reimbursable')::boolean, false),
+      coalesce((item->>'billable')::boolean, false),
+      nullif(item->>'notes', '')
+    )
+    on conflict (workspace_id, legacy_id) where legacy_id is not null do update
+    set category = excluded.category,
+        merchant = excluded.merchant,
+        amount = excluded.amount,
+        expense_date = excluded.expense_date,
+        reimbursable = excluded.reimbursable,
+        billable = excluded.billable,
+        notes = excluded.notes,
+        updated_at = now();
+  end loop;
+
+  inserted_counts := jsonb_build_object(
+    'workspace_id', target_workspace_id,
+    'clients', (select count(*) from public.clients where workspace_id = target_workspace_id),
+    'projects', (select count(*) from public.projects where workspace_id = target_workspace_id),
+    'proposals', (select count(*) from public.proposals where workspace_id = target_workspace_id),
+    'contracts', (select count(*) from public.contracts where workspace_id = target_workspace_id),
+    'invoices', (select count(*) from public.invoices where workspace_id = target_workspace_id),
+    'tasks', (select count(*) from public.tasks where workspace_id = target_workspace_id),
+    'time_entries', (select count(*) from public.time_entries where workspace_id = target_workspace_id),
+    'expenses', (select count(*) from public.expenses where workspace_id = target_workspace_id)
+  );
+
+  return inserted_counts;
+end;
+$$;
+
+grant execute on function public.migrate_velora_state_to_tables(uuid) to authenticated;
 
 -- ─── STORAGE BUCKET ────────────────────────────────────────────────────────
 -- Run this once in Supabase SQL editor to create the files storage bucket.

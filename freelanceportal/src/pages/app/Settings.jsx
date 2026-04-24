@@ -266,8 +266,12 @@ function AccountTab() {
       <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8, color: '#f87171' }}>Danger Zone</h3>
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 16 }}>Once you delete your account, all data will be permanently removed. This action cannot be undone.</p>
-        <button style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
-          Delete account
+        <button
+          disabled
+          title="Account deletion needs a backend data-retention workflow before it can be enabled."
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', color: '#f87171', borderRadius: 8, padding: '10px 20px', cursor: 'not-allowed', fontSize: '0.875rem', fontWeight: 600, opacity: 0.72 }}
+        >
+          Delete account · Em desenvolvimento
         </button>
       </div>
     </div>
@@ -351,6 +355,14 @@ function BillingTab() {
   const [billingError, setBillingError] = useState('')
   const [selectedInterval, setSelectedInterval] = useState(billingInterval)
 
+  const trialEndsAt = billing?.trialEndsAt ? new Date(billing.trialEndsAt) : null
+  const now = new Date()
+  const trialDaysLeft = trialEndsAt
+    ? Math.max(0, Math.ceil((trialEndsAt - now) / (1000 * 60 * 60 * 24)))
+    : null
+  const isTrialing = billing?.subscriptionStatus === 'trialing'
+  const isPaymentFailed = billing?.paymentState === 'payment_failed'
+
   async function openPortal() {
     const customerId = billing?.stripeCustomerId
     if (!customerId) {
@@ -405,17 +417,37 @@ function BillingTab() {
         </div>
       )}
 
+      {isPaymentFailed && (
+        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#f87171" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          <div>
+            <p style={{ fontSize: '0.875rem', color: '#f87171', fontWeight: 600, marginBottom: 2 }}>Pagamento falhado</p>
+            <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Atualiza o teu método de pagamento para evitar perder o acesso à conta.</p>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Current Plan</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Plano atual</h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              You are on the <strong>{planMeta.name}</strong> plan · {planMeta.prices[billingInterval] || planMeta.prices.monthly}
-              {billing?.subscriptionStatus === 'trialing' && (
-                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#22c55e', fontWeight: 600 }}>· Trial active</span>
+              Estás no plano <strong>{planMeta.name}</strong> · {planMeta.prices[billingInterval] || planMeta.prices.monthly}
+              {isTrialing && trialDaysLeft !== null && (
+                <span style={{
+                  marginLeft: 8, fontSize: '0.78rem', fontWeight: 600,
+                  color: trialDaysLeft <= 3 ? '#ef4444' : trialDaysLeft <= 7 ? '#f59e0b' : '#22c55e',
+                }}>
+                  · Trial: {trialDaysLeft === 0 ? 'termina hoje' : `${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''} restante${trialDaysLeft !== 1 ? 's' : ''}`}
+                </span>
+              )}
+              {!isTrialing && billing?.subscriptionStatus === 'active' && (
+                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#22c55e', fontWeight: 600 }}>· Ativo</span>
               )}
               {billing?.cancelAtPeriodEnd && (
-                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#f87171', fontWeight: 600 }}>· Cancels {billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd).toLocaleDateString() : 'soon'}</span>
+                <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#f87171', fontWeight: 600 }}>
+                  · Cancela a {billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd).toLocaleDateString('pt-PT') : 'brevemente'}
+                </span>
               )}
             </p>
           </div>
@@ -423,6 +455,25 @@ function BillingTab() {
             {planMeta.name.toUpperCase()}
           </div>
         </div>
+
+        {isTrialing && trialEndsAt && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Período de trial</span>
+              <span style={{ fontSize: '0.8rem', color: trialDaysLeft <= 3 ? '#ef4444' : '#94a3b8' }}>
+                Termina a {trialEndsAt.toLocaleDateString('pt-PT')}
+              </span>
+            </div>
+            <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                width: `${Math.min(100, Math.max(0, 100 - (trialDaysLeft / 14) * 100))}%`,
+                background: trialDaysLeft <= 3 ? '#ef4444' : trialDaysLeft <= 7 ? '#f59e0b' : '#22c55e',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
           {planMeta.features.map(f => (
@@ -434,7 +485,7 @@ function BillingTab() {
 
         <button onClick={openPortal} disabled={portalLoading} className="btn-ghost" style={{ padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {portalLoading ? <VeloraLoader size={12} label={null} words={['.', '..', '...', '....', '.']} /> : <ExternalLink size={14} />}
-          Manage subscription & invoices
+          {isPaymentFailed ? 'Gerir método de pagamento' : 'Gerir subscrição e faturas'}
         </button>
       </div>
 
@@ -503,12 +554,12 @@ function BillingTab() {
 function DomainTab() {
   const { domain, updateDomain } = useSettingsStore()
   const [value, setValue] = useState(domain.customDomain || '')
-  const [saved, setSaved] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const connect = () => {
-    updateDomain({ customDomain: value })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    updateDomain({ customDomain: value, status: 'not_configured' })
+    setNotice('Domínio guardado como Não configurado. A verificação DNS ainda está em desenvolvimento.')
+    setTimeout(() => setNotice(''), 3500)
   }
 
   return (
@@ -522,10 +573,11 @@ function DomainTab() {
         <div style={{ display: 'flex', gap: 10 }}>
           <input className="input" placeholder="clients.yourname.com" value={value} onChange={e => setValue(e.target.value)} style={{ maxWidth: 300 }} />
           <button onClick={connect} className="btn-primary" style={{ padding: '0 20px', flexShrink: 0 }}>
-            {saved ? <><Check size={14} /> Saved</> : 'Connect'}
+            Guardar domínio
           </button>
         </div>
-        {domain.customDomain && <p style={{ fontSize: '0.78rem', color: '#22c55e', marginTop: 6 }}>✓ Connected: {domain.customDomain}</p>}
+        {notice && <p style={{ fontSize: '0.78rem', color: '#f59e0b', marginTop: 6 }}>{notice}</p>}
+        {domain.customDomain && <p style={{ fontSize: '0.78rem', color: '#f59e0b', marginTop: 6 }}>Ação necessária: {domain.customDomain} ainda não foi validado por DNS.</p>}
       </div>
       <div style={{
         background: 'var(--bg-secondary)', borderRadius: 8, padding: 16, border: '1px solid var(--border)',

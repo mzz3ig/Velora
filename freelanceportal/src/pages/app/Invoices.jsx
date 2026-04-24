@@ -1,31 +1,58 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, CreditCard, CheckCircle2, Clock, AlertCircle, Send, X, Eye, Repeat, Calendar, Download, Bell, Trash2, FileDown, ExternalLink } from 'lucide-react'
 import { useInvoiceStore, useClientStore, useNotificationStore, useSettingsStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
 import { generateInvoicePDF } from '../../lib/pdf'
-import { createInvoiceCheckout } from '../../lib/api'
+import {
+  createInvoiceCheckout,
+  createInvoiceInTables,
+  deleteInvoiceFromTables,
+  listClientsFromTables,
+  listInvoicesFromTables,
+  markInvoicePaidInTables,
+  markInvoiceViewedInTables,
+  updateInvoiceInTables,
+} from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import VeloraLoader from '../../components/ui/VeloraLoader'
 
 const statusMeta = {
   paid: { label: 'Paid', icon: CheckCircle2, color: '#4ade80', bg: 'rgba(34,197,94,0.15)' },
   sent: { label: 'Sent', icon: Clock, color: '#fbbf24', bg: 'rgba(245,158,11,0.15)' },
+  viewed: { label: 'Viewed', icon: Eye, color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
   overdue: { label: 'Overdue', icon: AlertCircle, color: '#f87171', bg: 'rgba(239,68,68,0.15)' },
   draft: { label: 'Draft', icon: CreditCard, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
   scheduled: { label: 'Scheduled', icon: Calendar, color: '#9a7850', bg: 'rgba(129,140,248,0.15)' },
 }
 
-function NewInvoiceModal({ onClose }) {
-  const { addInvoice } = useInvoiceStore()
-  const { clients } = useClientStore()
+function NewInvoiceModal({ onClose, clients, onAdd }) {
   const [form, setForm] = useState({ client: '', clientId: null, project: '', amount: '', discount: 0, tax: 23, type: 'custom', due: '', recurring: false, interval: 'monthly', scheduled: false, send_date: '', notes: '', paymentUrl: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    const client = clients.find(c => c.id === parseInt(form.clientId))
-    addInvoice({ ...form, amount: Number(form.amount), discount: Number(form.discount), tax: Number(form.tax), client: client?.name || form.client, clientId: client?.id || null, status: form.scheduled ? 'scheduled' : 'draft' })
-    onClose()
+    setSubmitting(true)
+    setError('')
+    try {
+      const client = clients.find(c => String(c.id) === String(form.clientId))
+      await onAdd({
+        ...form,
+        amount: Number(form.amount),
+        discount: Number(form.discount),
+        tax: Number(form.tax),
+        client: client?.name || form.client,
+        clientEmail: client?.email || '',
+        clientId: client?.id || null,
+        status: form.scheduled ? 'scheduled' : 'draft',
+      })
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Could not create invoice.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -100,9 +127,11 @@ function NewInvoiceModal({ onClose }) {
             )}
           </div>
 
+          {error && <div className="badge badge-red" style={{ padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             <button type="button" onClick={onClose} className="btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}><Plus size={14} /> Create invoice</button>
+            <button type="submit" disabled={submitting} className="btn-primary" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}><Plus size={14} /> {submitting ? 'Creating...' : 'Create invoice'}</button>
           </div>
         </form>
       </motion.div>
@@ -124,7 +153,8 @@ function exportCSV(invoices) {
 }
 
 export default function Invoices() {
-  const { invoices, markPaid, markViewed, deleteInvoice, updateInvoice } = useInvoiceStore()
+  const { invoices: legacyInvoices, addInvoice, markPaid, markViewed, deleteInvoice, updateInvoice } = useInvoiceStore()
+  const { clients: legacyClients } = useClientStore()
   const { addNotification } = useNotificationStore()
   const { branding, account } = useSettingsStore()
   const [filter, setFilter] = useState('all')
@@ -132,6 +162,44 @@ export default function Invoices() {
   const [portalUrl, setPortalUrl] = useState('')
   const [portalError, setPortalError] = useState('')
   const [checkoutLoading, setCheckoutLoading] = useState(null) // invoice id being processed
+  const [dataMode, setDataMode] = useState('legacy')
+  const [dataError, setDataError] = useState('')
+  const [tableInvoices, setTableInvoices] = useState([])
+  const [tableClients, setTableClients] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTableData() {
+      try {
+        const [invoiceResult, clientResult] = await Promise.all([
+          listInvoicesFromTables(),
+          listClientsFromTables(),
+        ])
+        if (cancelled) return
+        setTableInvoices(invoiceResult.invoices || [])
+        setTableClients(clientResult.clients || [])
+        setDataMode('tables')
+        setDataError('')
+      } catch (err) {
+        if (cancelled) return
+        setDataMode('legacy')
+        setDataError(err.message || 'Supabase invoice tables are not ready yet.')
+      }
+    }
+    loadTableData()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const invoices = useMemo(
+    () => dataMode === 'tables' ? tableInvoices : legacyInvoices,
+    [dataMode, legacyInvoices, tableInvoices],
+  )
+  const clients = useMemo(
+    () => dataMode === 'tables' ? tableClients : legacyClients,
+    [dataMode, legacyClients, tableClients],
+  )
 
   function downloadInvoicePDF(inv) {
     const settings = {
@@ -141,6 +209,44 @@ export default function Invoices() {
     }
     const doc = generateInvoicePDF(inv, settings)
     doc.save(`invoice-${inv.id}.pdf`)
+  }
+
+  async function handleAddInvoice(invoice) {
+    if (dataMode === 'tables') {
+      const { invoice: created } = await createInvoiceInTables(invoice)
+      setTableInvoices(current => [created, ...current])
+      return created
+    }
+    addInvoice(invoice)
+    return invoice
+  }
+
+  async function handleUpdateInvoice(id, patch) {
+    if (dataMode === 'tables') {
+      const { invoice } = await updateInvoiceInTables(id, patch)
+      setTableInvoices(current => current.map(item => item.id === id ? invoice : item))
+      return invoice
+    }
+    updateInvoice(id, patch)
+    return patch
+  }
+
+  async function handleDeleteInvoice(id) {
+    if (dataMode === 'tables') {
+      await deleteInvoiceFromTables(id)
+      setTableInvoices(current => current.filter(item => item.id !== id))
+      return
+    }
+    deleteInvoice(id)
+  }
+
+  async function handleMarkViewed(id) {
+    if (dataMode === 'tables') {
+      const { invoice } = await markInvoiceViewedInTables(id)
+      setTableInvoices(current => current.map(item => item.id === id ? invoice : item))
+      return
+    }
+    markViewed(id)
   }
 
   async function createStripeCheckout(inv) {
@@ -162,7 +268,7 @@ export default function Invoices() {
       })
 
       // Save the checkout URL to the invoice so portal can use it
-      updateInvoice(inv.id, { stripeCheckoutUrl: url, stripeSessionId: sessionId, status: inv.status === 'draft' ? 'sent' : inv.status })
+      await handleUpdateInvoice(inv.id, { stripeCheckoutUrl: url, stripeSessionId: sessionId, status: inv.status === 'draft' ? 'sent' : inv.status })
       setPortalUrl(url)
     } catch (err) {
       setPortalError(err.message || 'Could not create payment link.')
@@ -176,8 +282,13 @@ export default function Invoices() {
   const totalPending = invoices.filter(i => ['sent','draft','scheduled'].includes(i.status)).reduce((s, i) => s + i.amount, 0)
   const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)
 
-  const handleMarkPaid = (inv) => {
-    markPaid(inv.id)
+  const handleMarkPaid = async (inv) => {
+    if (dataMode === 'tables') {
+      const { invoice } = await markInvoicePaidInTables(inv.id)
+      setTableInvoices(current => current.map(item => item.id === inv.id ? invoice : item))
+    } else {
+      markPaid(inv.id)
+    }
     addNotification({ type: 'payment', text: `Payment received — €${inv.amount.toLocaleString()} from ${inv.client}` })
   }
 
@@ -203,7 +314,14 @@ export default function Invoices() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 }}>Invoices</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Track payments · Stripe integration in Phase 1</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            Track payments · {dataMode === 'tables' ? 'Supabase tables' : 'Supabase legacy store'}
+          </p>
+          {dataMode === 'legacy' && dataError && (
+            <p style={{ color: '#fbbf24', fontSize: '0.78rem', marginTop: 6 }}>
+              Ação necessária: aplicar schema/migração para ativar faturas em tabelas Supabase. {dataError}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => exportCSV(invoices)}>
@@ -235,7 +353,7 @@ export default function Invoices() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        {[['all','All'],['paid','Paid'],['sent','Sent'],['overdue','Overdue'],['draft','Draft'],['scheduled','Scheduled']].map(([f,l]) => (
+        {[['all','All'],['paid','Paid'],['sent','Sent'],['viewed','Viewed'],['overdue','Overdue'],['draft','Draft'],['scheduled','Scheduled']].map(([f,l]) => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid', fontSize: '0.82rem', cursor: 'pointer', background: filter === f ? 'rgba(169,130,82,0.15)' : 'transparent', borderColor: filter === f ? 'rgba(169,130,82,0.4)' : 'var(--border)', color: filter === f ? '#9a7850' : 'var(--text-secondary)' }}>{l}</button>
         ))}
       </div>
@@ -255,7 +373,7 @@ export default function Invoices() {
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {inv.id}
+                {inv.displayId || inv.number || inv.id}
                 {inv.recurring && <Repeat size={10} style={{ marginLeft: 4, color: '#9a7850', verticalAlign: 'middle' }} />}
               </span>
               <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{inv.project}</span>
@@ -274,7 +392,7 @@ export default function Invoices() {
                   <s.icon size={10} /> {s.label}
                 </span>
                 {inv.viewed && <span title={`Viewed${inv.viewed_at ? ' · ' + new Date(inv.viewed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}`} style={{ fontSize: '0.68rem', color: '#22c55e', display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={11} /> Seen</span>}
-                {!inv.viewed && inv.status === 'sent' && <button onClick={() => markViewed(inv.id)} title="Mark as viewed by client" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={11} /></button>}
+                {!inv.viewed && inv.status === 'sent' && <button onClick={() => handleMarkViewed(inv.id)} title="Mark as viewed by client" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={11} /></button>}
                 {inv.status === 'sent' && (
                   <button onClick={() => handleMarkPaid(inv)} title="Mark as paid" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', padding: 2 }}><CheckCircle2 size={13} /></button>
                 )}
@@ -301,7 +419,7 @@ export default function Invoices() {
                 <button onClick={() => downloadInvoicePDF(inv)} title="Download PDF" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><FileDown size={12} /></button>
-                <button onClick={() => deleteInvoice(inv.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                <button onClick={() => handleDeleteInvoice(inv.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                   onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={12} /></button>
               </div>
@@ -326,7 +444,7 @@ export default function Invoices() {
       )}
 
       <AnimatePresence>
-        {showModal && <NewInvoiceModal onClose={() => setShowModal(false)} />}
+        {showModal && <NewInvoiceModal onClose={() => setShowModal(false)} clients={clients} onAdd={handleAddInvoice} />}
       </AnimatePresence>
     </div>
   )

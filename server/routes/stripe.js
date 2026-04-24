@@ -35,6 +35,22 @@ const PRICE_LOOKUP = Object.entries(PLAN_PRICES).reduce((acc, [plan, intervals])
   return acc
 }, {})
 
+function _keyMode(value) {
+  if (!value) return 'missing'
+  if (String(value).startsWith('sk_test_') || String(value).startsWith('pk_test_')) return 'test'
+  if (String(value).startsWith('sk_live_') || String(value).startsWith('pk_live_')) return 'live'
+  return 'unknown'
+}
+
+function _publicEnvState(key) {
+  const value = process.env[key]
+  return {
+    key,
+    configured: Boolean(value && String(value).trim()),
+    mode: _keyMode(value),
+  }
+}
+
 function _resolveCheckoutPrice({ plan, interval, priceId }) {
   if (priceId) {
     const match = PRICE_LOOKUP[priceId]
@@ -63,6 +79,28 @@ const stripeWriteRateLimit = createRateLimiter({
 
 async function _getInvoiceForUser(userId, invoiceId) {
   const supabase = getSupabaseAdmin()
+  const { data: tableInvoice, error: tableError } = await supabase
+    .from('invoices')
+    .select('*, clients(email), projects(name)')
+    .eq('owner_id', userId)
+    .or(_invoiceLookupFilter(invoiceId))
+    .maybeSingle()
+
+  if (!tableError && tableInvoice) {
+    return {
+      id: tableInvoice.id,
+      legacyId: tableInvoice.legacy_id,
+      invoiceNumber: tableInvoice.invoice_number,
+      amount: Number(tableInvoice.subtotal || tableInvoice.total || 0),
+      discount: Number(tableInvoice.discount || 0),
+      tax: Number(tableInvoice.tax || 0),
+      status: tableInvoice.status,
+      clientEmail: tableInvoice.clients?.email,
+      project: tableInvoice.projects?.name || tableInvoice.invoice_number,
+      source: 'supabase-table',
+    }
+  }
+
   const { data, error } = await supabase
     .from('velora_state')
     .select('value')
@@ -90,6 +128,15 @@ function _invoiceAmountCents(invoice) {
   const discounted = amount * (1 - discount / 100)
   const net = discounted * (1 + tax / 100)
   return Math.round(net * 100)
+}
+
+function _invoiceLookupFilter(invoiceId) {
+  const value = String(invoiceId || '')
+  const clauses = [`legacy_id.eq.${value}`, `invoice_number.eq.${value}`]
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    clauses.unshift(`id.eq.${value}`)
+  }
+  return clauses.join(',')
 }
 
 // ─── POST /stripe/create-checkout ─────────────────────────────────────────
@@ -235,6 +282,106 @@ router.post('/create-subscription', requireUser, stripeWriteRateLimit, async (re
   }
 })
 
+// ─── GET /stripe/diagnostics ───────────────────────────────────────────────
+// Returns a safe Stripe readiness report for the signed-in user/workspace.
+router.get('/diagnostics', requireUser, async (req, res, next) => {
+  try {
+    const env = {
+      secretKey: _publicEnvState('STRIPE_SECRET_KEY'),
+      webhookSecret: {
+        key: 'STRIPE_WEBHOOK_SECRET',
+        configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      },
+      prices: Object.fromEntries(
+        Object.entries(PLAN_PRICES).map(([plan, intervals]) => [
+          plan,
+          Object.fromEntries(
+            Object.entries(intervals).map(([interval, priceId]) => [
+              interval,
+              { configured: Boolean(priceId), priceId: priceId || null },
+            ]),
+          ),
+        ]),
+      ),
+    }
+
+    const diagnostics = {
+      ok: false,
+      mode: env.secretKey.mode,
+      env,
+      stripeReachable: false,
+      prices: [],
+      currentCustomerId: await _getCustomerIdForUser(req.user.id),
+      latestWebhookEvent: null,
+      actionsRequired: [],
+    }
+
+    if (!env.secretKey.configured) diagnostics.actionsRequired.push('Configure STRIPE_SECRET_KEY')
+    if (!env.webhookSecret.configured) diagnostics.actionsRequired.push('Configure STRIPE_WEBHOOK_SECRET')
+    if (process.env.NODE_ENV === 'production' && env.secretKey.mode === 'test') {
+      diagnostics.actionsRequired.push('Production is using a Stripe test secret key')
+    }
+    if (process.env.NODE_ENV !== 'production' && env.secretKey.mode === 'live') {
+      diagnostics.actionsRequired.push('Development is using a Stripe live secret key')
+    }
+
+    const configuredPriceEntries = Object.entries(PLAN_PRICES).flatMap(([plan, intervals]) =>
+      Object.entries(intervals)
+        .filter(([, priceId]) => Boolean(priceId))
+        .map(([interval, priceId]) => ({ plan, interval, priceId })),
+    )
+
+    if (!configuredPriceEntries.length) {
+      diagnostics.actionsRequired.push('Configure Stripe Price IDs for plans')
+    }
+
+    if (env.secretKey.configured) {
+      try {
+        const stripe = getStripe()
+        await stripe.balance.retrieve()
+        diagnostics.stripeReachable = true
+
+        const priceResults = await Promise.all(configuredPriceEntries.map(async (entry) => {
+          try {
+            const price = await stripe.prices.retrieve(entry.priceId, { expand: ['product'] })
+            return {
+              ...entry,
+              exists: true,
+              active: price.active,
+              currency: price.currency,
+              recurring: price.recurring?.interval || null,
+              productId: typeof price.product === 'string' ? price.product : price.product?.id,
+              productName: typeof price.product === 'string' ? null : price.product?.name,
+              productActive: typeof price.product === 'string' ? null : price.product?.active,
+            }
+          } catch (error) {
+            diagnostics.actionsRequired.push(`Stripe price not found or inaccessible: ${entry.plan}/${entry.interval}`)
+            return { ...entry, exists: false, error: error.message }
+          }
+        }))
+        diagnostics.prices = priceResults
+      } catch (error) {
+        diagnostics.actionsRequired.push(`Stripe API authentication failed: ${error.message}`)
+      }
+    }
+
+    const supabase = getSupabaseAdmin()
+    const { data: latestEvent } = await supabase
+      .from('stripe_webhook_events')
+      .select('event_id,event_type,processed_at')
+      .order('processed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    diagnostics.latestWebhookEvent = latestEvent || null
+    if (!latestEvent) diagnostics.actionsRequired.push('No Stripe webhook event has been processed yet')
+
+    diagnostics.ok = diagnostics.actionsRequired.length === 0
+    res.json(diagnostics)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── POST /stripe/webhook ──────────────────────────────────────────────────
 // Stripe calls this URL when payment events happen.
 // IMPORTANT: must use raw body (not JSON parsed) for signature verification.
@@ -300,6 +447,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           paymentState: sub.status,
           currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
           cancelAtPeriodEnd: sub.cancel_at_period_end,
+          trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
         })
         break
       }
@@ -349,8 +497,19 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 async function _storeCheckoutSession(userId, invoiceId, sessionId, url) {
-  // We patch the invoice object inside velora_state to add stripeSessionId + stripeCheckoutUrl
   const supabase = getSupabaseAdmin()
+  await supabase
+    .from('invoices')
+    .update({
+      stripe_checkout_session_id: sessionId,
+      stripe_checkout_url: url,
+      status: 'sent',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('owner_id', userId)
+    .or(_invoiceLookupFilter(invoiceId))
+
+  // Keep legacy state in sync while older screens or portal payloads still read it.
   const { data } = await supabase
     .from('velora_state')
     .select('value')
@@ -378,6 +537,17 @@ async function _storeCheckoutSession(userId, invoiceId, sessionId, url) {
 
 async function _markInvoicePaid(userId, invoiceId, paymentIntentId) {
   const supabase = getSupabaseAdmin()
+  await supabase
+    .from('invoices')
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('owner_id', userId)
+    .or(_invoiceLookupFilter(invoiceId))
+
   const { data } = await supabase
     .from('velora_state')
     .select('value')

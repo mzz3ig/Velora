@@ -57,4 +57,60 @@ function requireAdmin(req, _res, next) {
   next()
 }
 
-module.exports = { getSupabaseAdmin, requireUser, requireAdmin }
+// ─── Billing helpers ───────────────────────────────────────────────────────
+
+async function _getBillingState(userId) {
+  const supabase = getSupabaseAdmin()
+  const { data: row } = await supabase
+    .from('velora_state')
+    .select('value')
+    .eq('user_id', userId)
+    .eq('store_key', 'velora-settings')
+    .maybeSingle()
+  return row?.value?.state?.billing || null
+}
+
+// Returns { allowed, reason, billing }
+async function checkSubscriptionAccess(userId) {
+  const billing = await _getBillingState(userId)
+
+  // No billing state means user just registered and hasn't started a subscription yet.
+  // Grant access — they are still within their implicit trial window.
+  if (!billing) return { allowed: true, reason: 'no_billing', billing: null }
+
+  const status = billing.subscriptionStatus
+  const trialEndsAt = billing.trialEndsAt ? new Date(billing.trialEndsAt) : null
+  const now = new Date()
+
+  if (status === 'active') return { allowed: true, reason: 'active', billing }
+
+  if (status === 'trialing') {
+    if (trialEndsAt && trialEndsAt < now) {
+      return { allowed: false, reason: 'trial_expired', billing }
+    }
+    return { allowed: true, reason: 'trialing', billing }
+  }
+
+  if (status === 'past_due') return { allowed: true, reason: 'past_due', billing }
+
+  if (status === 'canceled' || status === 'unpaid') {
+    return { allowed: false, reason: status, billing }
+  }
+
+  // Unknown status — allow by default to avoid false lockouts
+  return { allowed: true, reason: 'unknown_status', billing }
+}
+
+async function requireActiveSubscription(req, res, next) {
+  try {
+    const { allowed, reason } = await checkSubscriptionAccess(req.user.id)
+    if (!allowed) {
+      return res.status(402).json({ error: 'subscription_required', reason })
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { getSupabaseAdmin, requireUser, requireAdmin, requireActiveSubscription, checkSubscriptionAccess }

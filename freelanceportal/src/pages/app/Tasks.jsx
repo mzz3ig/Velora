@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckSquare, Plus, X, Trash2, Edit2, ChevronDown, ChevronRight, Calendar, Circle, CheckCircle2, Search, Briefcase, MessageSquare, Send, Columns, List } from 'lucide-react'
 import { useTaskStore, useProjectStore } from '../../store'
+import {
+  createTaskInTables,
+  deleteTaskFromTables,
+  listProjectsFromTables,
+  listTasksFromTables,
+  updateTaskInTables,
+} from '../../lib/api'
 
 const PRIORITIES = [
   { value: 'high', label: 'High', color: '#ef4444' },
@@ -22,13 +29,12 @@ function PriorityDot({ priority }) {
   return <div style={{ width: 8, height: 8, borderRadius: '50%', background: p?.color || '#94a3b8', flexShrink: 0 }} title={p?.label} />
 }
 
-function CommentPanel({ task, onClose }) {
-  const { addComment } = useTaskStore()
+function CommentPanel({ task, onClose, onAddComment }) {
   const [text, setText] = useState('')
-  const send = (e) => {
+  const send = async (e) => {
     e.preventDefault()
     if (!text.trim()) return
-    addComment(task.id, text.trim())
+    await onAddComment(task, text.trim())
     setText('')
   }
   return (
@@ -147,8 +153,17 @@ function KanbanView({ tasks, updateTask, deleteTask, onEdit, onComment }) {
 }
 
 export default function Tasks() {
-  const { tasks, addTask, updateTask, toggleTask, deleteTask, addSubtask, toggleSubtask, deleteSubtask } = useTaskStore()
-  const { projects } = useProjectStore()
+  const {
+    tasks: legacyTasks,
+    addTask,
+    updateTask,
+    toggleTask,
+    deleteTask,
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+  } = useTaskStore()
+  const { projects: legacyProjects } = useProjectStore()
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -160,6 +175,44 @@ export default function Tasks() {
   const [newSubtask, setNewSubtask] = useState({})
   const [commentTask, setCommentTask] = useState(null)
   const [viewMode, setViewMode] = useState('list')
+  const [dataMode, setDataMode] = useState('legacy')
+  const [dataError, setDataError] = useState('')
+  const [tableTasks, setTableTasks] = useState([])
+  const [tableProjects, setTableProjects] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTableData() {
+      try {
+        const [taskResult, projectResult] = await Promise.all([
+          listTasksFromTables(),
+          listProjectsFromTables(),
+        ])
+        if (cancelled) return
+        setTableTasks(taskResult.tasks || [])
+        setTableProjects(projectResult.projects || [])
+        setDataMode('tables')
+        setDataError('')
+      } catch (err) {
+        if (cancelled) return
+        setDataMode('legacy')
+        setDataError(err.message || 'Supabase task tables are not ready yet.')
+      }
+    }
+    loadTableData()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const tasks = useMemo(
+    () => dataMode === 'tables' ? tableTasks : legacyTasks,
+    [dataMode, legacyTasks, tableTasks],
+  )
+  const projects = useMemo(
+    () => dataMode === 'tables' ? tableProjects : legacyProjects,
+    [dataMode, legacyProjects, tableProjects],
+  )
 
   function openNew() { setForm(EMPTY_FORM); setEditId(null); setShowModal(true) }
   function openEdit(task) {
@@ -167,12 +220,92 @@ export default function Tasks() {
     setEditId(task.id); setShowModal(true)
   }
 
-  function saveTask(e) {
+  async function saveTask(e) {
     e.preventDefault()
-    const proj = projects.find(p => p.id === parseInt(form.projectId))
+    const proj = projects.find(p => String(p.id) === String(form.projectId))
     const data = { ...form, project: proj?.name || '— No project —', projectId: proj?.id || null }
-    if (editId) { updateTask(editId, data) } else { addTask(data) }
+    if (dataMode === 'tables') {
+      if (editId) {
+        const { task } = await updateTaskInTables(editId, data)
+        setTableTasks(current => current.map(item => item.id === editId ? task : item))
+      } else {
+        const { task } = await createTaskInTables(data)
+        setTableTasks(current => [task, ...current])
+      }
+    } else if (editId) {
+      updateTask(editId, data)
+    } else {
+      addTask(data)
+    }
     setShowModal(false)
+  }
+
+  async function handleUpdateTask(id, patch) {
+    if (dataMode === 'tables') {
+      const { task } = await updateTaskInTables(id, patch)
+      setTableTasks(current => current.map(item => item.id === id ? task : item))
+      setCommentTask(current => current?.id === id ? task : current)
+      return task
+    }
+    updateTask(id, patch)
+    return patch
+  }
+
+  async function handleToggleTask(task) {
+    if (dataMode === 'tables') {
+      await handleUpdateTask(task.id, { done: !task.done, status: !task.done ? 'completed' : (task.kanban_col || 'todo') })
+      return
+    }
+    toggleTask(task.id)
+  }
+
+  async function handleDeleteTask(id) {
+    if (dataMode === 'tables') {
+      await deleteTaskFromTables(id)
+      setTableTasks(current => current.filter(item => item.id !== id))
+      return
+    }
+    deleteTask(id)
+  }
+
+  async function handleAddSubtask(task, title) {
+    const nextTitle = String(title || '').trim()
+    if (!nextTitle) return
+    const subtasks = [...(task.subtasks || []), { id: crypto.randomUUID(), title: nextTitle, done: false }]
+    if (dataMode === 'tables') {
+      await handleUpdateTask(task.id, { subtasks })
+    } else {
+      addSubtask(task.id, nextTitle)
+    }
+  }
+
+  async function handleToggleSubtask(task, subId) {
+    const subtasks = (task.subtasks || []).map(sub => sub.id === subId ? { ...sub, done: !sub.done } : sub)
+    if (dataMode === 'tables') {
+      await handleUpdateTask(task.id, { subtasks })
+    } else {
+      toggleSubtask(task.id, subId)
+    }
+  }
+
+  async function handleDeleteSubtask(task, subId) {
+    const subtasks = (task.subtasks || []).filter(sub => sub.id !== subId)
+    if (dataMode === 'tables') {
+      await handleUpdateTask(task.id, { subtasks })
+    } else {
+      deleteSubtask(task.id, subId)
+    }
+  }
+
+  async function handleAddComment(task, text) {
+    const comments = [...(task.comments || []), { id: crypto.randomUUID(), text, time: new Date().toISOString() }]
+    if (dataMode === 'tables') {
+      await handleUpdateTask(task.id, { comments })
+    } else {
+      const updated = { ...task, comments }
+      updateTask(task.id, { comments })
+      setCommentTask(updated)
+    }
   }
 
   const filtered = tasks.filter(t => {
@@ -190,7 +323,14 @@ export default function Tasks() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Tasks</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{tasks.filter(t=>!t.done).length} active · {tasks.filter(t=>t.done).length} completed</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            {tasks.filter(t=>!t.done).length} active · {tasks.filter(t=>t.done).length} completed · {dataMode === 'tables' ? 'Supabase tables' : 'Supabase legacy store'}
+          </p>
+          {dataMode === 'legacy' && dataError && (
+            <p style={{ color: '#fbbf24', fontSize: '0.78rem', marginTop: 6 }}>
+              Ação necessária: aplicar schema/migração para ativar tarefas em tabelas Supabase. {dataError}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -223,7 +363,7 @@ export default function Tasks() {
           if (filterProject !== 'All' && t.project !== filterProject) return false
           if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
           return true
-        })} updateTask={updateTask} deleteTask={deleteTask} onEdit={openEdit} onComment={setCommentTask} />
+        })} updateTask={handleUpdateTask} deleteTask={handleDeleteTask} onEdit={openEdit} onComment={setCommentTask} />
       )}
 
       {viewMode === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -236,7 +376,7 @@ export default function Tasks() {
               <motion.div key={task.id} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
                 className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <button onClick={() => toggleTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+                  <button onClick={() => handleToggleTask(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
                     {task.done ? <CheckCircle2 size={20} color="#22c55e" /> : <Circle size={20} color="var(--text-muted)" />}
                   </button>
                   <PriorityDot priority={task.priority} />
@@ -269,7 +409,7 @@ export default function Tasks() {
                     <button onClick={() => openEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Edit2 size={13} /></button>
-                    <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
+                    <button onClick={() => handleDeleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
                       onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={13} /></button>
                   </div>
@@ -280,11 +420,11 @@ export default function Tasks() {
                       style={{ borderTop: '1px solid var(--border)', padding: '10px 16px 12px 48px', background: 'var(--bg-secondary)' }}>
                       {task.subtasks.map(sub => (
                         <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-                          <button onClick={() => toggleSubtask(task.id, sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          <button onClick={() => handleToggleSubtask(task, sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                             {sub.done ? <CheckCircle2 size={16} color="#22c55e" /> : <Circle size={16} color="var(--text-muted)" />}
                           </button>
                           <span style={{ flex: 1, fontSize: '0.825rem', color: sub.done ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: sub.done ? 'line-through' : 'none' }}>{sub.title}</span>
-                          <button onClick={() => deleteSubtask(task.id, sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                          <button onClick={() => handleDeleteSubtask(task, sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                             onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><X size={12} /></button>
                         </div>
@@ -292,9 +432,9 @@ export default function Tasks() {
                       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                         <input className="input" placeholder="Add subtask..." value={newSubtask[task.id] || ''}
                           onChange={e => setNewSubtask(n => ({ ...n, [task.id]: e.target.value }))}
-                          onKeyDown={e => { if (e.key === 'Enter') { addSubtask(task.id, newSubtask[task.id] || ''); setNewSubtask(n => ({...n,[task.id]:''})) }}}
+                          onKeyDown={e => { if (e.key === 'Enter') { handleAddSubtask(task, newSubtask[task.id] || ''); setNewSubtask(n => ({...n,[task.id]:''})) }}}
                           style={{ fontSize: '0.8rem', padding: '6px 10px', flex: 1 }} />
-                        <button onClick={() => { addSubtask(task.id, newSubtask[task.id] || ''); setNewSubtask(n => ({...n,[task.id]:''})) }} style={{ padding: '6px 10px', background: 'var(--accent)', border: 'none', borderRadius: 7, cursor: 'pointer', color: 'white' }}><Plus size={14} /></button>
+                        <button onClick={() => { handleAddSubtask(task, newSubtask[task.id] || ''); setNewSubtask(n => ({...n,[task.id]:''})) }} style={{ padding: '6px 10px', background: 'var(--accent)', border: 'none', borderRadius: 7, cursor: 'pointer', color: 'white' }}><Plus size={14} /></button>
                       </div>
                     </motion.div>
                   )}
@@ -370,10 +510,16 @@ export default function Tasks() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                     {tmpl.tasks.map(t => <span key={t} style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 99, background: 'var(--bg-secondary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{t}</span>)}
                   </div>
-                  <button onClick={() => {
-                    tmpl.tasks.forEach((title) => {
-                      addTask({ title, projectId: null, project: '— No project —', priority: 'medium', due_date: '', notes: '', portal_visible: false, assignee: '' })
-                    })
+                  <button onClick={async () => {
+                    for (const title of tmpl.tasks) {
+                      const payload = { title, projectId: null, project: '— No project —', priority: 'medium', due_date: '', notes: '', portal_visible: false, assignee: '' }
+                      if (dataMode === 'tables') {
+                        const { task } = await createTaskInTables(payload)
+                        setTableTasks(current => [task, ...current])
+                      } else {
+                        addTask(payload)
+                      }
+                    }
                     setShowTemplates(false)
                   }} className="btn-primary" style={{ fontSize: '0.8rem', padding: '6px 14px' }}>Use template</button>
                 </div>
@@ -381,7 +527,7 @@ export default function Tasks() {
             </motion.div>
           </motion.div>
         )}
-        {commentTask && <CommentPanel task={commentTask} onClose={() => setCommentTask(null)} />}
+        {commentTask && <CommentPanel task={commentTask} onClose={() => setCommentTask(null)} onAddComment={handleAddComment} />}
       </AnimatePresence>
     </div>
   )

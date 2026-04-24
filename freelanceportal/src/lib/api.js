@@ -46,6 +46,104 @@ export async function createSubscriptionCheckout({ plan, interval = 'monthly', t
   return post('/stripe/create-subscription', { plan, interval, trialDays })
 }
 
+// Fetch billing status for the signed-in user.
+// Returns { allowed, reason, subscriptionStatus, trialEndsAt, trialDaysLeft, ... }
+export async function getBillingStatus() {
+  return get('/billing/status')
+}
+
+export async function getBackendHealth({ deep = false } = {}) {
+  return get(`/health${deep ? '?deep=1' : ''}`)
+}
+
+export async function getStripeDiagnostics() {
+  return get('/stripe/diagnostics')
+}
+
+export async function getDataStatus() {
+  return get('/data/status')
+}
+
+export async function migrateDataToTables() {
+  return post('/data/migrate', {})
+}
+
+export async function listClientsFromTables() {
+  return get('/data/clients')
+}
+
+export async function createClientInTables(client) {
+  return post('/data/clients', client)
+}
+
+export async function updateClientInTables(id, data) {
+  return request('PATCH', `/data/clients/${encodeURIComponent(id)}`, data)
+}
+
+export async function archiveClientInTables(id) {
+  return post(`/data/clients/${encodeURIComponent(id)}/archive`, {})
+}
+
+export async function deleteClientFromTables(id) {
+  return request('DELETE', `/data/clients/${encodeURIComponent(id)}`, null)
+}
+
+export async function listProjectsFromTables() {
+  return get('/data/projects')
+}
+
+export async function createProjectInTables(project) {
+  return post('/data/projects', project)
+}
+
+export async function updateProjectInTables(id, data) {
+  return request('PATCH', `/data/projects/${encodeURIComponent(id)}`, data)
+}
+
+export async function deleteProjectFromTables(id) {
+  return request('DELETE', `/data/projects/${encodeURIComponent(id)}`, null)
+}
+
+export async function listInvoicesFromTables() {
+  return get('/data/invoices')
+}
+
+export async function createInvoiceInTables(invoice) {
+  return post('/data/invoices', invoice)
+}
+
+export async function updateInvoiceInTables(id, data) {
+  return request('PATCH', `/data/invoices/${encodeURIComponent(id)}`, data)
+}
+
+export async function markInvoicePaidInTables(id) {
+  return post(`/data/invoices/${encodeURIComponent(id)}/paid`, {})
+}
+
+export async function markInvoiceViewedInTables(id) {
+  return post(`/data/invoices/${encodeURIComponent(id)}/viewed`, {})
+}
+
+export async function deleteInvoiceFromTables(id) {
+  return request('DELETE', `/data/invoices/${encodeURIComponent(id)}`, null)
+}
+
+export async function listTasksFromTables() {
+  return get('/data/tasks')
+}
+
+export async function createTaskInTables(task) {
+  return post('/data/tasks', task)
+}
+
+export async function updateTaskInTables(id, data) {
+  return request('PATCH', `/data/tasks/${encodeURIComponent(id)}`, data)
+}
+
+export async function deleteTaskFromTables(id) {
+  return request('DELETE', `/data/tasks/${encodeURIComponent(id)}`, null)
+}
+
 // Admin-only endpoints (server validates admin access)
 export async function adminMe() {
   return get('/admin/me')

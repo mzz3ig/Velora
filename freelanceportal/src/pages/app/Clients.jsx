@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, MoreHorizontal, Mail, Phone, ExternalLink, Trash2, Archive, X, Tag, StickyNote, Activity, ChevronDown } from 'lucide-react'
 import { useClientStore } from '../../store'
+import { archiveClientInTables, createClientInTables, deleteClientFromTables, listClientsFromTables, updateClientInTables } from '../../lib/api'
 
 const COLORS = ['#a98252','#bca57d','#22c55e','#f59e0b','#38bdf8','#f472b6','#fb923c']
 const ALL_TAGS = ['vip', 'design', 'development', 'agency', 'ecommerce', 'retainer', 'new']
@@ -131,18 +132,84 @@ function ClientDetailPanel({ client, onClose, onUpdate }) {
 
 export default function Clients() {
   const { clients, addClient, updateClient, archiveClient, deleteClient } = useClientStore()
+  const [tableClients, setTableClients] = useState([])
+  const [dataMode, setDataMode] = useState('legacy')
+  const [dataError, setDataError] = useState('')
+  const [loadingTables, setLoadingTables] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [menuOpen, setMenuOpen] = useState(null)
   const [detailClient, setDetailClient] = useState(null)
 
-  const filtered = clients.filter(c => {
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      setLoadingTables(true)
+      setDataError('')
+      try {
+        const data = await listClientsFromTables()
+        if (!mounted) return
+        setTableClients(data.clients || [])
+        setDataMode('tables')
+      } catch (error) {
+        if (!mounted) return
+        setDataMode('legacy')
+        setDataError(error.message || 'Client tables are not ready yet.')
+      } finally {
+        if (mounted) setLoadingTables(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const activeClients = dataMode === 'tables' ? tableClients : clients
+
+  async function handleAddClient(client) {
+    if (dataMode === 'tables') {
+      const created = await createClientInTables(client)
+      setTableClients((current) => [created.client, ...current])
+      return
+    }
+    addClient(client)
+  }
+
+  async function handleUpdateClient(id, data) {
+    if (dataMode === 'tables') {
+      const updated = await updateClientInTables(id, data)
+      setTableClients((current) => current.map((client) => client.id === id ? updated.client : client))
+      return
+    }
+    updateClient(id, data)
+  }
+
+  async function handleArchiveClient(id) {
+    if (dataMode === 'tables') {
+      const updated = await archiveClientInTables(id)
+      setTableClients((current) => current.map((client) => client.id === id ? updated.client : client))
+      return
+    }
+    archiveClient(id)
+  }
+
+  async function handleDeleteClient(id) {
+    if (dataMode === 'tables') {
+      await deleteClientFromTables(id)
+      setTableClients((current) => current.filter((client) => client.id !== id))
+      return
+    }
+    deleteClient(id)
+  }
+
+  const filtered = useMemo(() => activeClients.filter(c => {
     const q = search.toLowerCase()
-    const matchSearch = c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q)
+    const matchSearch = c.name.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q)
     const matchFilter = filter === 'all' || c.status === filter
     return matchSearch && matchFilter
-  })
+  }), [activeClients, filter, search])
 
   return (
     <div style={{ padding: '32px' }}>
@@ -150,7 +217,15 @@ export default function Clients() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: 0, marginBottom: 4 }}>Clients</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{clients.filter(c=>c.status==='active').length} active clients</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {activeClients.filter(c=>c.status==='active').length} active clients · {dataMode === 'tables' ? 'Supabase tables' : 'Supabase legacy store'}
+            {loadingTables ? ' · checking data model...' : ''}
+          </p>
+          {dataMode === 'legacy' && dataError && (
+            <p style={{ color: '#f59e0b', fontSize: '0.76rem', marginTop: 5 }}>
+              Ação necessária: aplica o schema Supabase para ativar tabelas reais. A app continua a guardar em velora_state.
+            </p>
+          )}
         </div>
         <button className="btn-primary" onClick={() => setShowModal(true)} style={{ padding: '9px 18px', fontSize: '0.875rem' }}>
           <Plus size={15} /> New client
@@ -216,8 +291,8 @@ export default function Clients() {
                   <motion.div initial={{ opacity: 0, scale: 0.95, y: -5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
                     style={{ position: 'absolute', right: 0, top: '100%', zIndex: 50, background: 'var(--surface-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, minWidth: 150, boxShadow: 'var(--shadow-lg)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)' }}>
                     {[
-                      { icon: Archive, label: 'Archive', action: () => { archiveClient(client.id); setMenuOpen(null) } },
-                      { icon: Trash2, label: 'Delete', action: () => { deleteClient(client.id); setMenuOpen(null) }, danger: true },
+                      { icon: Archive, label: 'Archive', action: () => { handleArchiveClient(client.id); setMenuOpen(null) } },
+                      { icon: Trash2, label: 'Delete', action: () => { handleDeleteClient(client.id); setMenuOpen(null) }, danger: true },
                     ].map(item => (
                       <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.84rem', fontWeight: 500, color: item.danger ? '#f87171' : 'var(--text-secondary)' }}>
                         <item.icon size={13} /> {item.label}
@@ -233,8 +308,8 @@ export default function Clients() {
       </motion.div>
 
       <AnimatePresence>
-        {showModal && <AddClientModal onClose={() => setShowModal(false)} onAdd={addClient} />}
-        {detailClient && <ClientDetailPanel client={detailClient} onClose={() => setDetailClient(null)} onUpdate={updateClient} />}
+        {showModal && <AddClientModal onClose={() => setShowModal(false)} onAdd={handleAddClient} />}
+        {detailClient && <ClientDetailPanel client={detailClient} onClose={() => setDetailClient(null)} onUpdate={handleUpdateClient} />}
       </AnimatePresence>
     </div>
   )

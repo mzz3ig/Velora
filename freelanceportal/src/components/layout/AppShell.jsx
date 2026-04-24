@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import TrialBanner from '../ui/TrialBanner'
 
 export default function AppShell() {
   const [collapsed, setCollapsed] = useState(false)
@@ -28,6 +29,7 @@ export default function AppShell() {
 
       <main className="workspace-main" style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
         {/* Mobile top bar */}
+        <TrialBanner />
         <div className="mobile-topbar">
           <button
             onClick={() => setMobileOpen(true)}

@@ -2,10 +2,12 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const stripeRouter = require('./routes/stripe')
+const billingRouter = require('./routes/billing')
 const portalRouter = require('./routes/portal')
 const adminRouter = require('./routes/admin')
 const publicRouter = require('./routes/public')
 const storageRouter = require('./routes/storage')
+const dataRouter = require('./routes/data')
 const { missingEnv } = require('./lib/env')
 const { toPublicMessage } = require('./lib/httpError')
 const { getSupabaseAdmin } = require('./lib/supabase')
@@ -13,6 +15,21 @@ const { HttpError } = require('./lib/httpError')
 
 const app = express()
 const PORT = process.env.PORT || 4000
+
+const REQUIRED_DATA_TABLES = [
+  'workspaces',
+  'workspace_members',
+  'clients',
+  'projects',
+  'proposals',
+  'contracts',
+  'invoices',
+  'invoice_items',
+  'payments',
+  'tasks',
+  'time_entries',
+  'expenses',
+]
 
 app.set('trust proxy', 1)
 
@@ -82,8 +99,24 @@ app.get('/health', async (req, res) => {
       checks.pgcrypto = { ok: false, error: 'portal_token_hash_failed' }
     }
 
+    checks.dataTables = {}
+    for (const table of REQUIRED_DATA_TABLES) {
+      try {
+        const supabase = getSupabaseAdmin()
+        const { error } = await supabase.from(table).select('id').limit(1)
+        checks.dataTables[table] = error
+          ? { ok: false, error: error.code || 'table_check_failed' }
+          : { ok: true }
+      } catch {
+        checks.dataTables[table] = { ok: false, error: 'table_check_failed' }
+      }
+    }
+
     result.checks = checks
-    result.ok = result.ok && Object.values(checks).every((c) => c.ok)
+    result.ok = result.ok
+      && checks.supabase?.ok
+      && checks.pgcrypto?.ok
+      && Object.values(checks.dataTables).every((c) => c.ok)
   }
 
   res.status(result.ok ? 200 : 500).json(result)
@@ -91,7 +124,9 @@ app.get('/health', async (req, res) => {
 
 // Stripe routes
 app.use('/stripe', stripeRouter)
+app.use('/billing', billingRouter)
 app.use('/storage', storageRouter)
+app.use('/data', dataRouter)
 app.use('/portal', portalRouter)
 app.use('/admin', adminRouter)
 app.use('/public', publicRouter)
