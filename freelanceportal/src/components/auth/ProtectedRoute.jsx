@@ -70,6 +70,8 @@ export default function ProtectedRoute() {
     // Fallback: never stay frozen longer than 8 seconds
     const timeout = setTimeout(() => finish(null), 8000)
 
+    let initialLoadDone = false
+
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return
       if (data.session) {
@@ -80,11 +82,14 @@ export default function ProtectedRoute() {
         }
       }
       clearTimeout(timeout)
+      initialLoadDone = true
       finish(data.session)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
+      // Skip the immediate fire that duplicates getSession()
+      if (!initialLoadDone) return
       setSession(nextSession)
       setOnboardingComplete(null)
       setBillingStatus(null)
