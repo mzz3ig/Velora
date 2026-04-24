@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { rehydrateAppStores } from '../../store'
@@ -7,99 +7,83 @@ import { getBillingStatus } from '../../lib/api'
 import VeloraLoader from '../ui/VeloraLoader'
 import SubscriptionBlocked from '../../pages/auth/SubscriptionBlocked'
 
-// Routes that are always accessible even when subscription is blocked
 const BILLING_EXEMPT_PATHS = ['/app/settings', '/onboarding']
 
 export default function ProtectedRoute() {
-  const [session, setSession] = useState(null)
-  const [onboardingComplete, setOnboardingComplete] = useState(null)
-  const [billingStatus, setBillingStatus] = useState(null) // null = not yet checked
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState({
+    loading: true,
+    session: null,
+    onboardingComplete: null,
+    billingStatus: null,
+  })
   const location = useLocation()
+  const inflight = useRef(false)
 
   useEffect(() => {
     let mounted = true
 
-    const checkOnboarding = async (s) => {
-      if (!s?.user?.id) return false
-      const { data, error } = await supabase
-        .from('user_onboarding')
-        .select('completed_at')
-        .eq('user_id', s.user.id)
-        .maybeSingle()
-      if (error) throw error
-      return Boolean(data?.completed_at)
-    }
+    async function boot(session) {
+      if (inflight.current) return
+      inflight.current = true
 
-    const checkBilling = async () => {
+      if (!session) {
+        if (mounted) setState({ loading: false, session: null, onboardingComplete: null, billingStatus: null })
+        inflight.current = false
+        return
+      }
+
       try {
-        const status = await getBillingStatus()
-        return status
+        await rehydrateAppStores()
       } catch {
-        // If the billing check fails (network, server down), allow access
-        // to avoid locking users out due to infrastructure issues
-        return { allowed: true, reason: 'check_failed' }
+        // non-fatal
       }
+
+      let onboardingComplete = true
+      let billingStatus = { allowed: true, reason: 'check_failed' }
+
+      try {
+        const [ob, bi] = await Promise.all([
+          supabase
+            .from('user_onboarding')
+            .select('completed_at')
+            .eq('user_id', session.user.id)
+            .maybeSingle()
+            .then(({ data, error }) => {
+              if (error) throw error
+              return Boolean(data?.completed_at)
+            }),
+          getBillingStatus().catch(() => ({ allowed: true, reason: 'check_failed' })),
+        ])
+        onboardingComplete = ob
+        billingStatus = bi
+      } catch {
+        // fallback already set above
+      }
+
+      if (mounted) {
+        setState({ loading: false, session, onboardingComplete, billingStatus })
+      }
+      inflight.current = false
     }
 
-    const finish = async (s) => {
-      if (!mounted) return
-      setSession(s)
-      if (s) {
-        try {
-          const [complete, billing] = await Promise.all([
-            checkOnboarding(s),
-            checkBilling(),
-          ])
-          if (!mounted) return
-          setOnboardingComplete(complete)
-          setBillingStatus(billing)
-        } catch (error) {
-          console.error('Failed to check session state', error)
-          if (!mounted) return
-          setOnboardingComplete(true)
-          setBillingStatus({ allowed: true, reason: 'check_failed' })
-        }
-      } else {
-        setOnboardingComplete(null)
-        setBillingStatus(null)
-      }
-      setLoading(false)
-    }
+    const timeout = setTimeout(() => {
+      if (mounted) setState({ loading: false, session: null, onboardingComplete: null, billingStatus: null })
+    }, 8000)
 
-    // Fallback: never stay frozen longer than 8 seconds
-    const timeout = setTimeout(() => finish(null), 8000)
-
-    let initialLoadDone = false
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return
-      if (data.session) {
-        try {
-          await rehydrateAppStores()
-        } catch (error) {
-          console.error('Failed to rehydrate app stores', error)
-        }
-      }
+    supabase.auth.getSession().then(({ data }) => {
       clearTimeout(timeout)
-      initialLoadDone = true
-      finish(data.session)
+      boot(data.session ?? null)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return
-      // Skip the immediate fire that duplicates getSession()
-      if (!initialLoadDone) return
-      setSession(nextSession)
-      setOnboardingComplete(null)
-      setBillingStatus(null)
-      finish(nextSession)
+      inflight.current = false
+      boot(session ?? null)
     })
 
     const markOnboardingComplete = () => {
-      if (mounted) setOnboardingComplete(true)
+      if (mounted) setState(s => ({ ...s, onboardingComplete: true }))
     }
-
     window.addEventListener('velora:onboarding-complete', markOnboardingComplete)
 
     return () => {
@@ -109,6 +93,8 @@ export default function ProtectedRoute() {
       listener.subscription.unsubscribe()
     }
   }, [])
+
+  const { loading, session, onboardingComplete, billingStatus } = state
 
   if (loading || (session && (onboardingComplete === null || billingStatus === null))) {
     return (
@@ -134,7 +120,6 @@ export default function ProtectedRoute() {
     return <Navigate to="/app/dashboard" replace />
   }
 
-  // Block access if subscription is not active/trialing, unless on an exempt path
   const isExempt = BILLING_EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))
   if (!isExempt && billingStatus && !billingStatus.allowed) {
     return <SubscriptionBlocked reason={billingStatus.reason} />
