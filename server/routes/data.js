@@ -392,7 +392,12 @@ router.post('/migrate', requireUser, dataWriteRateLimit, async (req, res, next) 
       target_user_id: req.user.id,
     })
 
-    if (error) throw new HttpError(500, 'Migration failed', { cause: error })
+    if (error) {
+      throw new HttpError(500, `Migration failed: ${error.message || error.code || 'unknown Supabase error'}`, {
+        expose: true,
+        cause: error,
+      })
+    }
 
     res.json({ ok: true, result: data })
   } catch (err) {

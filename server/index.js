@@ -31,6 +31,10 @@ const REQUIRED_DATA_TABLES = [
   'expenses',
 ]
 
+const DATA_TABLE_PROBES = {
+  workspace_members: 'workspace_id',
+}
+
 app.set('trust proxy', 1)
 
 // CORS — allow only your frontend domain in production
@@ -103,7 +107,8 @@ app.get('/health', async (req, res) => {
     for (const table of REQUIRED_DATA_TABLES) {
       try {
         const supabase = getSupabaseAdmin()
-        const { error } = await supabase.from(table).select('id').limit(1)
+        const probeColumn = DATA_TABLE_PROBES[table] || 'id'
+        const { error } = await supabase.from(table).select(probeColumn).limit(1)
         checks.dataTables[table] = error
           ? { ok: false, error: error.code || 'table_check_failed' }
           : { ok: true }
@@ -119,7 +124,7 @@ app.get('/health', async (req, res) => {
       && Object.values(checks.dataTables).every((c) => c.ok)
   }
 
-  res.status(result.ok ? 200 : 500).json(result)
+  res.status(200).json(result)
 })
 
 // Stripe routes

@@ -128,26 +128,35 @@ export default function SetupStatus() {
     setHealthError('')
     setStripeError('')
     setDataError('')
-    try {
-      const [healthData, stripeData, dataState] = await Promise.all([
-        getBackendHealth({ deep: true }),
-        getStripeDiagnostics(),
-        getDataStatus(),
-      ])
-      setHealth(healthData)
-      setStripeDiagnostics(stripeData)
-      setDataStatus(dataState)
-    } catch (error) {
-      setHealthError(error.message || 'Backend health check failed')
-      setStripeError(error.message || 'Stripe diagnostics failed')
-      setDataError(error.message || 'Data status failed')
+    const [healthResult, stripeResult, dataResult] = await Promise.allSettled([
+      getBackendHealth({ deep: true }),
+      getStripeDiagnostics(),
+      getDataStatus(),
+    ])
+
+    if (healthResult.status === 'fulfilled') {
+      setHealth(healthResult.value)
+    } else {
       setHealth(null)
-      setStripeDiagnostics(null)
-      setDataStatus(null)
-    } finally {
-      setLastChecked(new Date().toLocaleString())
-      setChecking(false)
+      setHealthError(healthResult.reason?.message || 'Backend health check failed')
     }
+
+    if (stripeResult.status === 'fulfilled') {
+      setStripeDiagnostics(stripeResult.value)
+    } else {
+      setStripeDiagnostics(null)
+      setStripeError(stripeResult.reason?.message || 'Stripe diagnostics failed')
+    }
+
+    if (dataResult.status === 'fulfilled') {
+      setDataStatus(dataResult.value)
+    } else {
+      setDataStatus(null)
+      setDataError(dataResult.reason?.message || 'Data status failed')
+    }
+
+    setLastChecked(new Date().toLocaleString())
+    setChecking(false)
   }
 
   useEffect(() => {

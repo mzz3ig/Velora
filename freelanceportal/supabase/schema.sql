@@ -940,6 +940,81 @@ grant execute on function public.public_submit_form(uuid, text, jsonb) to anon, 
 -- Migrates current velora_state JSON stores into normalized production tables.
 -- Idempotent through (workspace_id, legacy_id) indexes.
 
+create or replace function public.velora_try_numeric(raw_value text, fallback numeric default null)
+returns numeric
+language plpgsql
+immutable
+as $$
+begin
+  if raw_value is null or btrim(raw_value) = '' then
+    return fallback;
+  end if;
+  return raw_value::numeric;
+exception when others then
+  return fallback;
+end;
+$$;
+
+create or replace function public.velora_try_int(raw_value text, fallback int default null)
+returns int
+language plpgsql
+immutable
+as $$
+begin
+  if raw_value is null or btrim(raw_value) = '' then
+    return fallback;
+  end if;
+  return raw_value::int;
+exception when others then
+  return fallback;
+end;
+$$;
+
+create or replace function public.velora_try_date(raw_value text, fallback date default null)
+returns date
+language plpgsql
+immutable
+as $$
+begin
+  if raw_value is null or btrim(raw_value) = '' then
+    return fallback;
+  end if;
+  return raw_value::date;
+exception when others then
+  return fallback;
+end;
+$$;
+
+create or replace function public.velora_try_timestamptz(raw_value text, fallback timestamptz default null)
+returns timestamptz
+language plpgsql
+immutable
+as $$
+begin
+  if raw_value is null or btrim(raw_value) = '' then
+    return fallback;
+  end if;
+  return raw_value::timestamptz;
+exception when others then
+  return fallback;
+end;
+$$;
+
+create or replace function public.velora_try_bool(raw_value text, fallback boolean default false)
+returns boolean
+language plpgsql
+immutable
+as $$
+begin
+  if raw_value is null or btrim(raw_value) = '' then
+    return fallback;
+  end if;
+  return raw_value::boolean;
+exception when others then
+  return fallback;
+end;
+$$;
+
 create or replace function public.migrate_velora_state_to_tables(target_user_id uuid)
 returns jsonb
 language plpgsql
@@ -1010,7 +1085,7 @@ begin
       coalesce(array(select jsonb_array_elements_text(coalesce(item->'tags', '[]'::jsonb))), '{}'),
       nullif(item->>'notes', ''),
       case when item->>'status' = 'archived' then 'archived' else 'active' end,
-      coalesce((item->>'createdAt')::date::timestamptz, now())
+      coalesce(public.velora_try_date(item->>'createdAt')::timestamptz, now())
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
     set name = excluded.name,
@@ -1046,9 +1121,9 @@ begin
       nullif(item->>'description', ''),
       coalesce(nullif(item->>'status', ''), 'lead'),
       coalesce(nullif(item->>'priority', ''), 'medium'),
-      nullif(item->>'budget', '')::numeric,
-      nullif(item->>'deadline', '')::date,
-      coalesce(nullif(item->>'progress', '')::int, 0)
+      public.velora_try_numeric(item->>'budget'),
+      public.velora_try_date(item->>'deadline'),
+      coalesce(public.velora_try_int(item->>'progress'), 0)
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
     set client_id = excluded.client_id,
@@ -1079,15 +1154,15 @@ begin
       project_uuid,
       coalesce(nullif(item->>'title', ''), nullif(item->>'name', ''), 'Proposal'),
       coalesce(nullif(item->>'status', ''), 'draft'),
-      coalesce(nullif(item->>'subtotal', '')::numeric, 0),
-      coalesce(nullif(item->>'discount', '')::numeric, 0),
-      coalesce(nullif(item->>'tax', '')::numeric, 0),
-      coalesce(nullif(item->>'total', '')::numeric, 0),
+      coalesce(public.velora_try_numeric(item->>'subtotal'), 0),
+      coalesce(public.velora_try_numeric(item->>'discount'), 0),
+      coalesce(public.velora_try_numeric(item->>'tax'), 0),
+      coalesce(public.velora_try_numeric(item->>'total'), 0),
       item,
-      nullif(item->>'validUntil', '')::date,
-      nullif(item->>'sent_at', '')::timestamptz,
-      nullif(item->>'viewed_at', '')::timestamptz,
-      nullif(item->>'responded_at', '')::timestamptz
+      public.velora_try_date(item->>'validUntil'),
+      public.velora_try_timestamptz(item->>'sent_at'),
+      public.velora_try_timestamptz(item->>'viewed_at'),
+      public.velora_try_timestamptz(item->>'responded_at')
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
     set status = excluded.status,
@@ -1116,7 +1191,7 @@ begin
       coalesce(nullif(item->>'title', ''), 'Contract'),
       coalesce(nullif(item->>'status', ''), 'draft'),
       nullif(item->>'content', ''),
-      nullif(item->>'signed_at', '')::timestamptz,
+      public.velora_try_timestamptz(item->>'signed_at'),
       nullif(item->>'signer_name', '')
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
@@ -1150,14 +1225,14 @@ begin
       contract_uuid,
       coalesce(nullif(item->>'number', ''), nullif(item->>'id', ''), 'INV-LEGACY'),
       coalesce(nullif(item->>'status', ''), 'draft'),
-      coalesce(nullif(item->>'amount', '')::numeric, 0),
-      coalesce(nullif(item->>'discount', '')::numeric, 0),
-      coalesce(nullif(item->>'tax', '')::numeric, 0),
-      coalesce(nullif(item->>'total', '')::numeric, nullif(item->>'amount', '')::numeric, 0),
-      nullif(item->>'issued', '')::date,
-      nullif(item->>'due', '')::date,
-      nullif(item->>'paid', '')::date::timestamptz,
-      nullif(item->>'viewed_at', '')::timestamptz,
+      coalesce(public.velora_try_numeric(item->>'amount'), 0),
+      coalesce(public.velora_try_numeric(item->>'discount'), 0),
+      coalesce(public.velora_try_numeric(item->>'tax'), 0),
+      coalesce(public.velora_try_numeric(item->>'total'), public.velora_try_numeric(item->>'amount'), 0),
+      public.velora_try_date(item->>'issued'),
+      public.velora_try_date(item->>'due'),
+      public.velora_try_timestamptz(item->>'paid'),
+      public.velora_try_timestamptz(item->>'viewed_at'),
       nullif(item->>'stripeSessionId', ''),
       nullif(item->>'stripePaymentIntentId', ''),
       nullif(item->>'stripeCheckoutUrl', ''),
@@ -1191,13 +1266,13 @@ begin
       project_uuid,
       coalesce(nullif(item->>'title', ''), 'Untitled task'),
       nullif(item->>'notes', ''),
-      case when coalesce((item->>'done')::boolean, false) then 'completed' else coalesce(nullif(item->>'status', ''), 'todo') end,
+      case when public.velora_try_bool(item->>'done', false) then 'completed' else coalesce(nullif(item->>'status', ''), 'todo') end,
       coalesce(nullif(item->>'priority', ''), 'medium'),
       nullif(item->>'assignee', ''),
       nullif(item->>'kanban_col', ''),
-      nullif(item->>'due_date', '')::date,
-      case when coalesce((item->>'done')::boolean, false) then now() else null end,
-      coalesce((item->>'portal_visible')::boolean, false),
+      public.velora_try_date(item->>'due_date'),
+      case when public.velora_try_bool(item->>'done', false) then now() else null end,
+      public.velora_try_bool(item->>'portal_visible', false),
       coalesce(item->'subtasks', '[]'::jsonb),
       coalesce(item->'comments', '[]'::jsonb)
     )
@@ -1229,10 +1304,10 @@ begin
       target_user_id,
       project_uuid,
       nullif(item->>'task', ''),
-      coalesce(nullif(item->>'date', '')::date, current_date),
-      greatest(1, round(coalesce(nullif(item->>'hours', '')::numeric, 0) * 60)::int),
-      coalesce((item->>'billable')::boolean, true),
-      coalesce((item->>'invoiced')::boolean, false)
+      coalesce(public.velora_try_date(item->>'date'), current_date),
+      greatest(1, round(coalesce(public.velora_try_numeric(item->>'hours'), 0) * 60)::int),
+      public.velora_try_bool(item->>'billable', true),
+      public.velora_try_bool(item->>'invoiced', false)
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
     set description = excluded.description,
@@ -1258,10 +1333,10 @@ begin
       project_uuid,
       nullif(item->>'category', ''),
       coalesce(nullif(item->>'merchant', ''), 'Expense'),
-      coalesce(nullif(item->>'amount', '')::numeric, 0),
-      coalesce(nullif(item->>'date', '')::date, current_date),
-      coalesce((item->>'reimbursable')::boolean, false),
-      coalesce((item->>'billable')::boolean, false),
+      coalesce(public.velora_try_numeric(item->>'amount'), 0),
+      coalesce(public.velora_try_date(item->>'date'), current_date),
+      public.velora_try_bool(item->>'reimbursable', false),
+      public.velora_try_bool(item->>'billable', false),
       nullif(item->>'notes', '')
     )
     on conflict (workspace_id, legacy_id) where legacy_id is not null do update
