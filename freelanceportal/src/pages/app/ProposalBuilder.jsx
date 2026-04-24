@@ -1,9 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, Send, Eye, ArrowLeft, FileText, Copy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useClientStore, useProjectStore, useProposalStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
+import {
+  listProposalsFromTables,
+  createProposalInTables,
+  deleteProposalFromTables,
+  listClientsFromTables,
+  listProjectsFromTables,
+} from '../../lib/api'
 
 const defaultItems = [
   { id: 1, name: 'Strategy & Discovery', qty: 1, price: 800 },
@@ -12,9 +19,15 @@ const defaultItems = [
 ]
 
 export default function ProposalBuilder() {
-  const { clients } = useClientStore()
-  const { projects } = useProjectStore()
+  const { clients: localClients } = useClientStore()
+  const { projects: localProjects } = useProjectStore()
   const { addProposal } = useProposalStore()
+
+  const [tableClients, setTableClients] = useState(null)
+  const [tableProjects, setTableProjects] = useState(null)
+  const [tableProposals, setTableProposals] = useState([])
+  const [dataMode, setDataMode] = useState('local')
+
   const [clientId, setClientId] = useState('')
   const [projectId, setProjectId] = useState('')
   const [projectName, setProjectName] = useState('')
@@ -28,6 +41,31 @@ export default function ProposalBuilder() {
   const [sendError, setSendError] = useState('')
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        const [cResult, pResult, prResult] = await Promise.all([
+          listClientsFromTables(),
+          listProjectsFromTables(),
+          listProposalsFromTables(),
+        ])
+        if (!mounted) return
+        setTableClients(cResult.clients || [])
+        setTableProjects(pResult.projects || [])
+        setTableProposals(prResult.proposals || [])
+        setDataMode('tables')
+      } catch {
+        if (mounted) setDataMode('local')
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  const clients = tableClients ?? localClients
+  const projects = tableProjects ?? localProjects
 
   const selectedClient = clients.find(c => String(c.id) === String(clientId))
   const selectedProject = projects.find(p => String(p.id) === String(projectId))
@@ -46,7 +84,7 @@ export default function ProposalBuilder() {
     setSending(true)
     setSendError('')
     try {
-      const proposal = {
+      const proposalPayload = {
         clientId: selectedClient.id,
         client: selectedClient.name,
         projectId: selectedProject?.id || null,
@@ -59,7 +97,26 @@ export default function ProposalBuilder() {
         total,
         status: 'sent',
       }
-      addProposal(proposal)
+
+      if (dataMode === 'tables') {
+        await createProposalInTables({
+          client_id: selectedClient.id,
+          project_id: selectedProject?.id || null,
+          title: projectName,
+          status: 'sent',
+          subtotal,
+          discount: (subtotal * discount) / 100,
+          tax: 0,
+          total,
+          content: { items, notes, discount },
+          valid_until: expiry || null,
+          sent_at: new Date().toISOString(),
+        })
+        setTableProposals(prev => [...prev, { ...proposalPayload, id: String(Date.now()) }])
+      } else {
+        addProposal(proposalPayload)
+      }
+
       const link = await createPortalLink({ clientId: selectedClient.id, projectId: selectedProject?.id || null, expiresInDays: 30 })
       setPortalUrl(link.url)
       setSent(true)

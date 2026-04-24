@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Pause, Square, Clock, Plus, Trash2, X, Calendar, DollarSign, Timer, BarChart2, Download } from 'lucide-react'
 import { useTimeStore, useProjectStore } from '../../store'
+import {
+  listTimeEntriesFromTables,
+  createTimeEntryInTables,
+  deleteTimeEntryFromTables,
+  listProjectsFromTables,
+} from '../../lib/api'
 
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -27,23 +33,43 @@ function exportCSV(entries) {
 }
 
 export default function TimeTracking() {
-  const { entries, addEntry, deleteEntry } = useTimeStore()
-  const { projects } = useProjectStore()
+  const { entries: localEntries, addEntry, deleteEntry } = useTimeStore()
+  const { projects: localProjects } = useProjectStore()
+
+  const [tableEntries, setTableEntries] = useState(null)
+  const [tableProjects, setTableProjects] = useState(null)
+  const [dataMode, setDataMode] = useState('local')
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [timerProjectId, setTimerProjectId] = useState(projects[0]?.id || '')
+  const [timerProjectId, setTimerProjectId] = useState('')
   const [timerTask, setTimerTask] = useState('')
   const [timerBillable, setTimerBillable] = useState(true)
   const [showManual, setShowManual] = useState(false)
   const [filterProject, setFilterProject] = useState('All')
   const [filterDate, setFilterDate] = useState('all')
   const intervalRef = useRef(null)
-
-  const timerProject = projects.find(p => p.id === parseInt(timerProjectId)) || projects[0]
-
   const [manualForm, setManualForm] = useState({
-    projectId: projects[0]?.id || '', task: '', date: new Date().toISOString().split('T')[0], hours: '', billable: true, notes: '',
+    projectId: '', task: '', date: new Date().toISOString().split('T')[0], hours: '', billable: true, notes: '',
   })
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        const [eResult, pResult] = await Promise.all([listTimeEntriesFromTables(), listProjectsFromTables()])
+        if (!mounted) return
+        setTableEntries(eResult.entries || [])
+        setTableProjects(pResult.projects || [])
+        setDataMode('tables')
+      } catch { if (mounted) setDataMode('local') }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  const entries = tableEntries ?? localEntries
+  const projects = tableProjects ?? localProjects
+  const timerProject = projects.find(p => String(p.id) === String(timerProjectId)) || projects[0]
 
   useEffect(() => {
     if (running) {
@@ -52,20 +78,32 @@ export default function TimeTracking() {
     return () => clearInterval(intervalRef.current)
   }, [running])
 
-  function stopTimer() {
+  async function stopTimer() {
     setRunning(false)
     if (elapsed > 60 && timerProject) {
-      addEntry({ project: timerProject.name, projectId: timerProject.id, client: timerProject.client || '', task: timerTask || 'Untitled task', date: new Date().toISOString().split('T')[0], hours: Math.round((elapsed / 3600) * 100) / 100, billable: timerBillable, notes: '' })
+      const entryData = { project: timerProject.name, projectId: timerProject.id, client: timerProject.client || '', task: timerTask || 'Untitled task', date: new Date().toISOString().split('T')[0], hours: Math.round((elapsed / 3600) * 100) / 100, billable: timerBillable, notes: '' }
+      if (dataMode === 'tables') {
+        try {
+          const r = await createTimeEntryInTables({ project_id: timerProject.id, description: entryData.task, entry_date: entryData.date, minutes: Math.round(elapsed / 60), billable: timerBillable })
+          setTableEntries(prev => [r.entry, ...(prev || [])])
+        } catch { addEntry(entryData) }
+      } else { addEntry(entryData) }
     }
     setElapsed(0)
   }
 
-  function addManual(e) {
+  async function addManual(e) {
     e.preventDefault()
     if (!manualForm.task || !manualForm.hours) return
-    const proj = projects.find(p => p.id === parseInt(manualForm.projectId))
-    addEntry({ project: proj?.name || '', projectId: proj?.id || null, client: proj?.client || '', ...manualForm, hours: parseFloat(manualForm.hours) })
-    setManualForm({ projectId: projects[0]?.id || '', task: '', date: new Date().toISOString().split('T')[0], hours: '', billable: true, notes: '' })
+    const proj = projects.find(p => String(p.id) === String(manualForm.projectId))
+    const entryData = { project: proj?.name || '', projectId: proj?.id || null, client: proj?.client || '', ...manualForm, hours: parseFloat(manualForm.hours) }
+    if (dataMode === 'tables') {
+      try {
+        const r = await createTimeEntryInTables({ project_id: proj?.id || null, description: manualForm.task, entry_date: manualForm.date, minutes: Math.round(parseFloat(manualForm.hours) * 60), billable: manualForm.billable })
+        setTableEntries(prev => [r.entry, ...(prev || [])])
+      } catch { addEntry(entryData) }
+    } else { addEntry(entryData) }
+    setManualForm({ projectId: '', task: '', date: new Date().toISOString().split('T')[0], hours: '', billable: true, notes: '' })
     setShowManual(false)
   }
 

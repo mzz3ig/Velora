@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Receipt, Plus, Trash2, X, Upload, Tag, DollarSign,
   TrendingDown, Calendar, Briefcase, Filter, Download, Edit2,
 } from 'lucide-react'
 import { useExpenseStore, useProjectStore } from '../../store'
+import {
+  listExpensesFromTables,
+  createExpenseInTables,
+  updateExpenseInTables,
+  deleteExpenseFromTables,
+  listProjectsFromTables,
+} from '../../lib/api'
 
 const CATEGORIES = [
   'Software & Subscriptions', 'Hardware & Equipment', 'Travel & Transport',
@@ -28,27 +35,74 @@ function exportCSV(expenses) {
 }
 
 export default function Expenses() {
-  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenseStore()
-  const { projects } = useProjectStore()
+  const { expenses: localExpenses, addExpense, updateExpense, deleteExpense } = useExpenseStore()
+  const { projects: localProjects } = useProjectStore()
+
+  const [tableExpenses, setTableExpenses] = useState(null)
+  const [tableProjects, setTableProjects] = useState(null)
+  const [dataMode, setDataMode] = useState('local')
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filterCat, setFilterCat] = useState('All')
   const [search, setSearch] = useState('')
 
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        const [eResult, pResult] = await Promise.all([listExpensesFromTables(), listProjectsFromTables()])
+        if (!mounted) return
+        setTableExpenses(eResult.expenses || [])
+        setTableProjects(pResult.projects || [])
+        setDataMode('tables')
+      } catch { if (mounted) setDataMode('local') }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  const expenses = tableExpenses ?? localExpenses
+  const projects = tableProjects ?? localProjects
+
   function openNew() { setForm(EMPTY_FORM); setEditId(null); setShowModal(true) }
   function openEdit(exp) {
-    setForm({ merchant: exp.merchant, date: exp.date, amount: exp.amount, category: exp.category, projectId: exp.projectId || '', reimbursable: exp.reimbursable, billable: exp.billable, notes: exp.notes || '' })
+    setForm({ merchant: exp.merchant || exp.merchant_name || '', date: exp.date || exp.expense_date || '', amount: exp.amount, category: exp.category, projectId: exp.project_id || exp.projectId || '', reimbursable: exp.reimbursable, billable: exp.billable, notes: exp.notes || '' })
     setEditId(exp.id); setShowModal(true)
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault()
     if (!form.merchant || !form.amount) return
-    const proj = projects.find(p => p.id === parseInt(form.projectId))
+    const proj = projects.find(p => String(p.id) === String(form.projectId))
     const data = { ...form, amount: parseFloat(form.amount), project: proj?.name || null, projectId: proj?.id || null, receipt: null }
-    if (editId) { updateExpense(editId, data) } else { addExpense(data) }
+
+    if (dataMode === 'tables') {
+      const payload = { project_id: proj?.id || null, category: form.category, merchant: form.merchant, amount: parseFloat(form.amount), expense_date: form.date, reimbursable: form.reimbursable, billable: form.billable, notes: form.notes || null }
+      try {
+        if (editId) {
+          const r = await updateExpenseInTables(editId, payload)
+          setTableExpenses(prev => prev.map(ex => String(ex.id) === String(editId) ? r.expense : ex))
+        } else {
+          const r = await createExpenseInTables(payload)
+          setTableExpenses(prev => [r.expense, ...(prev || [])])
+        }
+      } catch {
+        if (editId) { updateExpense(editId, data) } else { addExpense(data) }
+      }
+    } else {
+      if (editId) { updateExpense(editId, data) } else { addExpense(data) }
+    }
     setShowModal(false)
+  }
+
+  async function handleDelete(id) {
+    if (dataMode === 'tables') {
+      try {
+        await deleteExpenseFromTables(id)
+        setTableExpenses(prev => prev.filter(ex => String(ex.id) !== String(id)))
+      } catch { deleteExpense(id) }
+    } else { deleteExpense(id) }
   }
 
   const filtered = expenses.filter(e => {
@@ -137,7 +191,7 @@ export default function Expenses() {
                       {exp.notes && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{exp.notes}</div>}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.825rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                      {new Date(exp.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date((exp.date || exp.expense_date) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: '0.775rem', padding: '3px 8px', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
@@ -158,7 +212,7 @@ export default function Expenses() {
                         <button onClick={() => openEdit(exp)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
                           onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
                           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Edit2 size={14} /></button>
-                        <button onClick={() => deleteExpense(exp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
+                        <button onClick={() => handleDelete(exp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6 }}
                           onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}><Trash2 size={14} /></button>
                       </div>

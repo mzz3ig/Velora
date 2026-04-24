@@ -7,6 +7,13 @@ import {
 import { useClientStore, useContractStore, useProjectStore, useSettingsStore } from '../../store'
 import { createPortalLink } from '../../lib/portal'
 import { generateContractPDF } from '../../lib/pdf'
+import {
+  listContractsFromTables,
+  createContractInTables,
+  updateContractInTables,
+  deleteContractFromTables,
+  signContractInTables,
+} from '../../lib/api'
 
 const clauses = [
   { title: 'Payment Terms', text: 'Payment is due within 14 days of invoice date. A late payment fee of 2% per month applies to overdue invoices.' },
@@ -352,13 +359,58 @@ function SignContractModal({ contract, onSign, onClose }) {
 }
 
 export default function Contracts() {
-  const { contracts, addContract, markSigned } = useContractStore()
+  const { contracts: localContracts, addContract, markSigned } = useContractStore()
   const { branding, account } = useSettingsStore()
+  const [tableContracts, setTableContracts] = useState(null)
+  const [dataMode, setDataMode] = useState('local')
   const [showModal, setShowModal] = useState(false)
   const [signContract, setSignContract] = useState(null)
   const [portalLink, setPortalLink] = useState(null)
   const [portalError, setPortalError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    listContractsFromTables()
+      .then(r => { if (mounted) { setTableContracts(r.contracts || []); setDataMode('tables') } })
+      .catch(() => { if (mounted) setDataMode('local') })
+    return () => { mounted = false }
+  }, [])
+
+  const contracts = tableContracts ?? localContracts
+
+  async function handleAddContract(contract) {
+    if (dataMode === 'tables') {
+      try {
+        const r = await createContractInTables({
+          client_id: contract.clientId,
+          project_id: contract.projectId || null,
+          title: contract.project,
+          status: contract.status || 'draft',
+          content: contract.content || null,
+        })
+        setTableContracts(prev => [r.contract, ...(prev || [])])
+      } catch {
+        addContract(contract)
+      }
+    } else {
+      addContract(contract)
+    }
+  }
+
+  async function handleMarkSigned(id, data = {}) {
+    if (dataMode === 'tables') {
+      try {
+        const r = await signContractInTables(id, data)
+        setTableContracts(prev => prev.map(c => String(c.id) === String(id) ? r.contract : c))
+      } catch {
+        markSigned(id, data)
+      }
+    } else {
+      markSigned(id, data)
+    }
+    setSignContract(null)
+  }
 
   function downloadContractPDF(contract) {
     const settings = {
@@ -371,8 +423,7 @@ export default function Contracts() {
   }
 
   function markContractSigned(id) {
-    markSigned(id, { signer_name: 'Preview signer' })
-    setSignContract(null)
+    handleMarkSigned(id, { signer_name: 'Preview signer' })
   }
 
   async function createLink(contract) {
@@ -491,7 +542,7 @@ export default function Contracts() {
       )}
 
       <AnimatePresence>
-        {showModal && <NewContractModal onClose={() => setShowModal(false)} onAdd={addContract} />}
+        {showModal && <NewContractModal onClose={() => setShowModal(false)} onAdd={handleAddContract} />}
         {signContract && <SignContractModal contract={signContract} onSign={markContractSigned} onClose={() => setSignContract(null)} />}
       </AnimatePresence>
     </div>

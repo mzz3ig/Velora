@@ -150,6 +150,84 @@ export async function deleteTaskFromTables(id) {
   return request('DELETE', `/data/tasks/${encodeURIComponent(id)}`, null)
 }
 
+// ─── Proposals ────────────────────────────────────────────────────────────────
+
+export async function listProposalsFromTables() {
+  return get('/data/proposals')
+}
+
+export async function createProposalInTables(proposal) {
+  return post('/data/proposals', proposal)
+}
+
+export async function updateProposalInTables(id, data) {
+  return request('PATCH', `/data/proposals/${encodeURIComponent(id)}`, data)
+}
+
+export async function deleteProposalFromTables(id) {
+  return request('DELETE', `/data/proposals/${encodeURIComponent(id)}`, null)
+}
+
+// ─── Contracts ────────────────────────────────────────────────────────────────
+
+export async function listContractsFromTables() {
+  return get('/data/contracts')
+}
+
+export async function createContractInTables(contract) {
+  return post('/data/contracts', contract)
+}
+
+export async function updateContractInTables(id, data) {
+  return request('PATCH', `/data/contracts/${encodeURIComponent(id)}`, data)
+}
+
+export async function signContractInTables(id, data) {
+  return post(`/data/contracts/${encodeURIComponent(id)}/sign`, data)
+}
+
+export async function deleteContractFromTables(id) {
+  return request('DELETE', `/data/contracts/${encodeURIComponent(id)}`, null)
+}
+
+// ─── Time Entries ─────────────────────────────────────────────────────────────
+
+export async function listTimeEntriesFromTables() {
+  return get('/data/time')
+}
+
+export async function createTimeEntryInTables(entry) {
+  return post('/data/time', entry)
+}
+
+export async function updateTimeEntryInTables(id, data) {
+  return request('PATCH', `/data/time/${encodeURIComponent(id)}`, data)
+}
+
+export async function deleteTimeEntryFromTables(id) {
+  return request('DELETE', `/data/time/${encodeURIComponent(id)}`, null)
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+export async function listExpensesFromTables() {
+  return get('/data/expenses')
+}
+
+export async function createExpenseInTables(expense) {
+  return post('/data/expenses', expense)
+}
+
+export async function updateExpenseInTables(id, data) {
+  return request('PATCH', `/data/expenses/${encodeURIComponent(id)}`, data)
+}
+
+export async function deleteExpenseFromTables(id) {
+  return request('DELETE', `/data/expenses/${encodeURIComponent(id)}`, null)
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
 // Admin-only endpoints (server validates admin access)
 export async function adminMe() {
   return get('/admin/me')

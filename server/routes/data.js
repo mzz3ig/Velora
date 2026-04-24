@@ -782,4 +782,251 @@ router.delete('/tasks/:id', requireUser, dataWriteRateLimit, async (req, res, ne
   }
 })
 
+// ─── PROPOSALS ────────────────────────────────────────────────────────────────
+
+router.get('/proposals', requireUser, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { data, error } = await getSupabaseAdmin()
+      .from('proposals')
+      .select('*, client:clients(id,name,email)')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+    if (error) throw new HttpError(500, 'Could not list proposals', { cause: error })
+    res.json({ proposals: data || [] })
+  } catch (err) { next(err) }
+})
+
+router.post('/proposals', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { client_id, project_id, title, status, subtotal, discount, tax, total, content, valid_until } = req.body
+    const { data, error } = await getSupabaseAdmin()
+      .from('proposals')
+      .insert({ workspace_id: workspaceId, owner_id: req.user.id, client_id, project_id: project_id || null, title, status: status || 'draft', subtotal: subtotal || 0, discount: discount || 0, tax: tax || 0, total: total || 0, content: content || null, valid_until: valid_until || null })
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not create proposal', { cause: error })
+    res.status(201).json({ proposal: data })
+  } catch (err) { next(err) }
+})
+
+router.patch('/proposals/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const allowed = ['title', 'status', 'subtotal', 'discount', 'tax', 'total', 'content', 'valid_until', 'sent_at', 'viewed_at', 'responded_at', 'client_id', 'project_id']
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)))
+    updates.updated_at = new Date().toISOString()
+    const { data, error } = await getSupabaseAdmin()
+      .from('proposals')
+      .update(updates)
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not update proposal', { cause: error })
+    res.json({ proposal: data })
+  } catch (err) { next(err) }
+})
+
+router.delete('/proposals/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('proposals')
+      .delete()
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+    if (error) throw new HttpError(500, 'Could not delete proposal', { cause: error })
+    res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ─── CONTRACTS ────────────────────────────────────────────────────────────────
+
+router.get('/contracts', requireUser, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { data, error } = await getSupabaseAdmin()
+      .from('contracts')
+      .select('*, client:clients(id,name,email)')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+    if (error) throw new HttpError(500, 'Could not list contracts', { cause: error })
+    res.json({ contracts: data || [] })
+  } catch (err) { next(err) }
+})
+
+router.post('/contracts', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { client_id, proposal_id, title, status, content } = req.body
+    const { data, error } = await getSupabaseAdmin()
+      .from('contracts')
+      .insert({ workspace_id: workspaceId, owner_id: req.user.id, client_id, proposal_id: proposal_id || null, title, status: status || 'draft', content: content || null })
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not create contract', { cause: error })
+    res.status(201).json({ contract: data })
+  } catch (err) { next(err) }
+})
+
+router.patch('/contracts/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const allowed = ['title', 'status', 'content', 'signed_at', 'signer_name', 'signer_ip', 'signed_pdf_path', 'client_id', 'proposal_id']
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)))
+    updates.updated_at = new Date().toISOString()
+    const { data, error } = await getSupabaseAdmin()
+      .from('contracts')
+      .update(updates)
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not update contract', { cause: error })
+    res.json({ contract: data })
+  } catch (err) { next(err) }
+})
+
+router.post('/contracts/:id/sign', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { signer_name, signer_ip } = req.body
+    const { data, error } = await getSupabaseAdmin()
+      .from('contracts')
+      .update({ status: 'signed', signed_at: new Date().toISOString(), signer_name: signer_name || null, signer_ip: signer_ip || null, updated_at: new Date().toISOString() })
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not sign contract', { cause: error })
+    res.json({ contract: data })
+  } catch (err) { next(err) }
+})
+
+router.delete('/contracts/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('contracts')
+      .delete()
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+    if (error) throw new HttpError(500, 'Could not delete contract', { cause: error })
+    res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ─── TIME ENTRIES ─────────────────────────────────────────────────────────────
+
+router.get('/time', requireUser, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { data, error } = await getSupabaseAdmin()
+      .from('time_entries')
+      .select('*, project:projects(id,name)')
+      .eq('workspace_id', workspaceId)
+      .order('entry_date', { ascending: false })
+    if (error) throw new HttpError(500, 'Could not list time entries', { cause: error })
+    res.json({ entries: data || [] })
+  } catch (err) { next(err) }
+})
+
+router.post('/time', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { project_id, task_id, description, entry_date, minutes, billable, hourly_rate } = req.body
+    const { data, error } = await getSupabaseAdmin()
+      .from('time_entries')
+      .insert({ workspace_id: workspaceId, owner_id: req.user.id, project_id: project_id || null, task_id: task_id || null, description: description || null, entry_date: entry_date || new Date().toISOString().split('T')[0], minutes: minutes || 0, billable: billable !== false, hourly_rate: hourly_rate || null, invoiced: false })
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not create time entry', { cause: error })
+    res.status(201).json({ entry: data })
+  } catch (err) { next(err) }
+})
+
+router.patch('/time/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const allowed = ['project_id', 'task_id', 'description', 'entry_date', 'minutes', 'billable', 'hourly_rate', 'invoiced']
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)))
+    updates.updated_at = new Date().toISOString()
+    const { data, error } = await getSupabaseAdmin()
+      .from('time_entries')
+      .update(updates)
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not update time entry', { cause: error })
+    res.json({ entry: data })
+  } catch (err) { next(err) }
+})
+
+router.delete('/time/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('time_entries')
+      .delete()
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+    if (error) throw new HttpError(500, 'Could not delete time entry', { cause: error })
+    res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ─── EXPENSES ─────────────────────────────────────────────────────────────────
+
+router.get('/expenses', requireUser, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { data, error } = await getSupabaseAdmin()
+      .from('expenses')
+      .select('*, project:projects(id,name)')
+      .eq('workspace_id', workspaceId)
+      .order('expense_date', { ascending: false })
+    if (error) throw new HttpError(500, 'Could not list expenses', { cause: error })
+    res.json({ expenses: data || [] })
+  } catch (err) { next(err) }
+})
+
+router.post('/expenses', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const workspaceId = await ensureWorkspace(req.user.id)
+    const { project_id, category, merchant, amount, expense_date, reimbursable, billable, notes } = req.body
+    const { data, error } = await getSupabaseAdmin()
+      .from('expenses')
+      .insert({ workspace_id: workspaceId, owner_id: req.user.id, project_id: project_id || null, category: category || 'other', merchant: merchant || null, amount: amount || 0, expense_date: expense_date || new Date().toISOString().split('T')[0], reimbursable: reimbursable === true, billable: billable === true, notes: notes || null })
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not create expense', { cause: error })
+    res.status(201).json({ expense: data })
+  } catch (err) { next(err) }
+})
+
+router.patch('/expenses/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const allowed = ['project_id', 'category', 'merchant', 'amount', 'expense_date', 'reimbursable', 'billable', 'notes', 'receipt_path']
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)))
+    updates.updated_at = new Date().toISOString()
+    const { data, error } = await getSupabaseAdmin()
+      .from('expenses')
+      .update(updates)
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+      .select()
+      .single()
+    if (error) throw new HttpError(500, 'Could not update expense', { cause: error })
+    res.json({ expense: data })
+  } catch (err) { next(err) }
+})
+
+router.delete('/expenses/:id', requireUser, dataWriteRateLimit, async (req, res, next) => {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('expenses')
+      .delete()
+      .eq('id', String(req.params.id))
+      .eq('owner_id', req.user.id)
+    if (error) throw new HttpError(500, 'Could not delete expense', { cause: error })
+    res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
 module.exports = router
